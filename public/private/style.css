@@ -1,0 +1,1923 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: #1a1a1a;
+    overflow: hidden;
+}
+
+.game-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+}
+
+.world-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.world-area:active {
+    cursor: grabbing;
+}
+
+.world-container {
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    top: -25%;
+    left: -25%;
+    background: #468819;
+    background-repeat: repeat;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    transition: none;
+    transform-origin: center center;
+}
+
+/* Performance optimization for naming mode */
+.world-container.naming-mode {
+    will-change: transform;
+    contain: layout style paint;
+}
+
+/* Enhanced naming mode overlay - single efficient overlay */
+.world-container.naming-mode::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: grayscale(100%) brightness(0.6);
+    -webkit-backdrop-filter: grayscale(100%) brightness(0.6);
+    z-index: 350;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* NEW: Separate overlay for name tags - sits above everything */
+.name-tags-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Don't block world interactions */
+    z-index: 8000; /* Above all game elements */
+}
+
+/* NEW: Wallet and social buttons container */
+.wallet-social-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 280px;
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 15px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wallet-social-container.hud-hidden {
+    transform: translateX(-120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.connect-wallet-button {
+    padding: 8px 20px;
+    background: rgba(138, 43, 226, 0.7);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: 'Courier New', monospace;
+    width: 100%;
+}
+
+.connect-wallet-button:hover {
+    background: rgba(138, 43, 226, 0.8);
+    transform: translateY(-1px);
+}
+
+.connect-wallet-button.connected {
+    background: rgba(138, 43, 226, 0.7);
+}
+
+.connect-wallet-button.connected:hover {
+    background: rgba(255, 68, 68, 0.8);
+    color: white;
+}
+
+.connect-wallet-button:disabled {
+    background: rgba(120, 120, 120, 0.7);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.twitter-button {
+    padding: 8px 20px;
+    background: rgba(29, 161, 242, 0.7);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Courier New', monospace;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.twitter-button:hover {
+    background: rgba(29, 161, 242, 0.8);
+    transform: translateY(-1px);
+}
+
+/* Contract Address Display - now inside wallet container */
+.ca-container {
+    background: rgb(66, 185, 38, 0.7);
+    border-radius: 12px;
+    padding: 8px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    width: 100%;
+}
+
+.ca-container:hover {
+    background: rgb(71, 214, 37, 0.8);
+    transform: translateY(-2px);
+}
+
+.ca-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+}
+
+/* Copy feedback animation */
+.ca-container.copied {
+    background: rgb(71, 214, 37, 0.8);
+    border-color: rgb(71, 214, 37, 0.8);
+}
+
+.ca-container.copied .ca-text {
+    color: #ffffff;
+}
+
+.documentation-button {
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #000000;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Courier New', monospace;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.documentation-button:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Documentation popup scrollbar styling */
+.documentation-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.documentation-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.documentation-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.documentation-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Firefox scrollbar styling */
+.documentation-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+}
+
+.server-stats-container {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-header {
+    padding: 15px 20px 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0;
+    text-transform: none;
+    letter-spacing: normal;
+    margin: 0;
+}
+
+.stats-content {
+    padding: 15px 20px;
+    flex: 1;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.stat-item.simple {
+    margin-bottom: 6px;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.stat-value {
+    color: #4CAF50;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: right;
+}
+
+.progress-bar-container {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    max-width: 80px;
+}
+
+.progress-bar {
+    width: 60px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 6px;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.happiness-fill {
+    background: linear-gradient(90deg, #ff4444, #ffaa00, #4CAF50);
+}
+
+.sentience-fill {
+    background: linear-gradient(90deg, #2196F3, #00BCD4, #4CAF50);
+}
+
+.progress-text {
+    font-size: 10px;
+    color: #4CAF50;
+    font-weight: bold;
+    min-width: 30px;
+    text-align: right;
+}
+
+.stats-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 10px 0;
+}
+
+.throng-balance-container {
+    position: absolute;
+    top: 233px;
+    left: 20px;
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 15px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1000;
+    color: #ffffff;
+    width: 280px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.throng-balance-container.hud-hidden {
+    transform: translateX(-120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.balance-header {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.token-balance {
+    color: #FFD700;
+    font-weight: bold;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+}
+
+.actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ALL action buttons are purple by default */
+.action-button {
+    padding: 8px 12px;
+    background: rgba(138, 43, 226, 0.7);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace;
+    width: 100%;
+}
+
+.action-button:hover {
+    background: rgba(138, 43, 226, 0.8);
+    transform: translateX(2px);
+}
+
+.action-button.disabled {
+    background: rgba(120, 120, 120, 0.7);
+    cursor: not-allowed;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.action-button.disabled:hover {
+    background: rgba(120, 120, 120, 0.7);
+    transform: none;
+}
+
+/* Special styling for name emulite button - GREEN with left border */
+#nameThrongBtn {
+    background: rgb(225 186 15 / 90%);
+    border-left: 3px solid #af9007;
+}
+
+#nameThrongBtn:hover {
+    background: rgb(225 186 15 / 100%);
+    transform: translateX(2px);
+}
+
+#nameThrongBtn.disabled {
+    background: rgba(120, 120, 120, 0.7);
+    cursor: not-allowed;
+    color: rgba(255, 255, 255, 0.5);
+    border-left: 3px solid rgba(120, 120, 120, 0.7);
+}
+
+#nameThrongBtn.disabled:hover {
+    background: rgba(120, 120, 120, 0.7);
+    transform: none;
+    box-shadow: none;
+}
+
+/* Admin section with separation and gold title */
+.admin-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 20px 0 0 0;
+    padding-top: 20px;
+}
+
+/* Admin dropdown styling */
+.admin-dropdown {
+    width: 100%;
+    padding: 12px 20px;
+    background: rgba(138, 43, 226, 0.7);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><polygon points="0,0 12,0 6,8" fill="white"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 12px;
+}
+
+.admin-dropdown:hover {
+    background: rgba(138, 43, 226, 0.8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(138, 43, 226, 0.3);
+}
+
+.admin-dropdown:focus {
+    outline: none;
+    background: rgba(138, 43, 226, 0.9);
+    box-shadow: 0 0 0 2px rgba(138, 43, 226, 0.5);
+}
+
+.admin-dropdown option {
+    background: rgba(40, 40, 40, 0.95);
+    color: white;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.admin-dropdown option:hover {
+    background: rgba(138, 43, 226, 0.8);
+}
+
+.admin-dropdown option:disabled {
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(60, 60, 60, 0.8);
+}
+/* Add a subtle divider line above admin section */
+.admin-section::before {
+    content: '';
+    display: block;
+    width: 60%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #FFD700, transparent);
+    margin: 0 auto -15px auto;
+}
+
+/* Gold admin panel title */
+.admin-section-title {
+    color: #ffffff;
+    font-size: 14px;
+    margin-bottom: 15px;
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    text-align: center;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 2px solid #B8860B;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Keep admin-free styling simple */
+.action-button.admin-free {
+    background: rgba(138, 43, 226, 0.7);
+    border-left: 3px solid #8A2BE2;
+}
+
+.action-button.admin-free:hover {
+    background: rgba(138, 43, 226, 0.8);
+    transform: translateX(2px);
+    box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+}
+
+.zoom-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 15px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1000;
+    color: #ffffff;
+    font-size: 12px;
+    width: 280px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zoom-container.hud-hidden {
+    transform: translateX(-120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.zoom-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    font-style: italic;
+}
+
+.zoom-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zoom-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+}
+
+.zoom-value {
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 14px;
+    min-width: 40px;
+}
+
+/* Notification System */
+.notification-container {
+    position: absolute;
+    bottom: 140px;
+    left: 20px;
+    z-index: 1500;
+    min-width: 200px;
+    max-width: 350px;
+}
+
+.notification {
+    background: rgba(20, 20, 20, 0.9);
+    border-radius: 12px;
+    padding: 15px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 12px;
+    margin-bottom: 10px;
+    animation: slideInLeft 0.3s ease-out;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+}
+
+.notification.error {
+    background: rgba(220, 38, 38, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.notification.warning {
+    background: rgba(217, 119, 6, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.notification.info {
+    background: rgba(59, 130, 246, 0.9);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.notification-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.notification-text {
+    line-height: 1.4;
+    opacity: 0.9;
+}
+
+.notification-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    animation: progressCountdown linear;
+}
+
+.notification.fade-out {
+    animation: slideOutLeft 0.3s ease-in forwards;
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutLeft {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+}
+
+@keyframes progressCountdown {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+.sidebar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 280px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: calc(100vh - 108px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.hud-hidden {
+    transform: translateX(120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* View Journals button - same style as CA container */
+.view-journals-container {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 12px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    width: 100%;
+}
+
+.view-journals-container:hover {
+    background: rgba(20, 20, 20, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.view-journals-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+}
+
+.view-journals-container.copied {
+    background: rgba(76, 175, 80, 0.7);
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+.view-journals-container.copied .view-journals-text {
+    color: #ffffff;
+}
+
+/* Automation Status Container */
+.automation-status-container {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 12px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+    width: 100%;
+    text-align: center;
+}
+
+.automation-status-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    animation: breatheText 2s ease-in-out infinite;
+}
+
+.dots {
+    display: inline-block;
+    min-width: 24px;
+    text-align: left;
+}
+
+/* Breathing animation for the text */
+@keyframes breatheText {
+    0%, 100% { 
+        opacity: 0.7; 
+        transform: scale(1); 
+    }
+    50% { 
+        opacity: 1; 
+        transform: scale(1.02); 
+    }
+}
+
+/* Different colors for different phases */
+.automation-status-text.thinking {
+    color: #64B5F6;
+}
+
+.automation-status-text.preparing {
+    color: #FFB74D;
+}
+
+.automation-status-text.plotting {
+    color: #FF8A65;
+}
+
+.automation-status-text.deploying {
+    color: #81C784;
+}
+
+.automation-status-text.idle {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* HUD Toggle Button - Fixed bottom right position, always grey */
+.hud-toggle-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: rgba(120, 120, 120, 0.7);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Courier New', monospace;
+    z-index: 2000;
+    min-width: 280px;
+    text-align: center;
+}
+
+.hud-toggle-button:hover {
+    background: rgba(120, 120, 120, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.hud-toggle-button:active {
+    transform: translateY(0);
+}
+
+/* Audio Toggle Button - Fixed bottom right, to the left of HUD toggle */
+.audio-toggle-button {
+    position: fixed;
+    bottom: 20px;
+    right: 320px; /* 280px (HUD button width) + 40px (gap) = 320px from right */
+    padding: 11px 20px;
+    background: rgba(120, 120, 120, 0.7);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Courier New', monospace;
+    z-index: 2000;
+    min-width: 60px; /* Smaller than HUD button */
+    text-align: center;
+}
+
+.audio-toggle-button:hover {
+    background: rgba(120, 120, 120, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.audio-toggle-button:active {
+    transform: translateY(0);
+}
+
+/* Audio ON state - green color */
+.audio-toggle-button.audio-on {
+    background: rgba(120, 120, 120, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-toggle-button.audio-on:hover {
+    background: rgba(120, 120, 120, 0.8);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Audio OFF state - red color */
+.audio-toggle-button.audio-off {
+    background: rgba(120, 120, 120, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-toggle-button.audio-off:hover {
+    background: rgba(120, 120, 120, 0.8);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive positioning for smaller screens */
+@media (max-width: 1200px) {
+    .audio-toggle-button {
+        right: 300px; /* Slightly closer on smaller screens */
+        min-width: 120px;
+        font-size: 13px;
+        padding: 10px 16px;
+    }
+}
+
+@media (max-width: 1599px), (max-height: 899px) {
+    .audio-toggle-button {
+        display: none; /* Hide on small screens since the game is blocked anyway */
+    }
+}
+
+.feed-container {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 12px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    max-height: 400px;
+}
+
+.feed-header {
+    padding: 15px 20px 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    flex-shrink: 0;
+}
+
+.feed-header h3 {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    min-height: 0;
+}
+
+.feed-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 14px 20px;
+    transition: background 0.2s ease;
+    animation: slideIn 0.3s ease-out;
+}
+
+.feed-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.feed-item:last-child {
+    border-bottom: none;
+}
+
+.feed-item h4 {
+    color: #4CAF50;
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.feed-item p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.feed-item .timestamp {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+.load-more-btn {
+    padding: 12px 20px;
+    background: rgba(76, 175, 80, 0.7);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Courier New', monospace;
+    margin: 10px 20px;
+    text-align: center;
+}
+
+.load-more-btn:hover {
+    background: rgba(76, 175, 80, 0.8);
+    transform: translateY(-1px);
+}
+
+.load-more-btn:disabled {
+    background: rgba(120, 120, 120, 0.7);
+    cursor: not-allowed;
+    transform: none;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* New styles for falling emulites */
+.throng.falling {
+    z-index: 999;
+    transition: none;
+}
+
+.house {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.apartment {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.tree {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.bone {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Add this right after the .bone CSS block */
+.firepit {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.firepit-smoke-container {
+    position: absolute;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.egg {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.ufo {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.throng.shaking {
+    animation: shake 0.5s ease-in-out;
+}
+
+.throng.popping-out {
+    animation: popOut 0.6s ease-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+    20%, 40%, 60%, 80% { transform: translateX(3px); }
+}
+
+@keyframes popOut {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.3);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* New bounce animation for baby emulites */
+@keyframes bounce {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Love heart bubbling effect animations */
+@keyframes loveHeartFloat {
+    0% {
+        opacity: 0.8;
+        transform: translateY(0) scale(0.6);
+    }
+    25% {
+        opacity: 1;
+        transform: translateY(-8px) scale(0.8);
+    }
+    50% {
+        opacity: 0.9;
+        transform: translateY(-16px) scale(1);
+    }
+    75% {
+        opacity: 0.6;
+        transform: translateY(-24px) scale(0.7);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-32px) scale(0.3);
+    }
+}
+
+@keyframes loveHeartPulse {
+    0%, 100% {
+        transform: scale(0.6);
+    }
+    50% {
+        transform: scale(0.9);
+    }
+}
+
+@keyframes loveHeartSway {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-2px);
+    }
+    75% {
+        transform: translateX(2px);
+    }
+}
+
+/* Love effect container styling */
+.love-effect {
+    position: absolute;
+    pointer-events: none;
+    z-index: 999;
+}
+
+.love-heart {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    opacity: 0.8;
+    animation: loveHeartFloat 2s ease-out infinite, 
+               loveHeartPulse 1s ease-in-out infinite,
+               loveHeartSway 3s ease-in-out infinite;
+}
+
+/* Different animation delays for varied effect */
+.love-heart:nth-child(1) { animation-delay: 0s, 0s, 0s; }
+.love-heart:nth-child(2) { animation-delay: 0.3s, 0.2s, 0.5s; }
+.love-heart:nth-child(3) { animation-delay: 0.6s, 0.4s, 1s; }
+.love-heart:nth-child(4) { animation-delay: 0.9s, 0.6s, 1.5s; }
+.love-heart:nth-child(5) { animation-delay: 1.2s, 0.8s, 2s; }
+.love-heart:nth-child(6) { animation-delay: 1.5s, 1s, 2.5s; }
+
+/* Enhanced shaking animation during breeding */
+@keyframes breedingShake {
+    0%, 100% { 
+        transform: translateX(0) translateY(0); 
+    }
+    10% { 
+        transform: translateX(-2px) translateY(-1px); 
+    }
+    20% { 
+        transform: translateX(2px) translateY(1px); 
+    }
+    30% { 
+        transform: translateX(-2px) translateY(0px); 
+    }
+    40% { 
+        transform: translateX(2px) translateY(-1px); 
+    }
+    50% { 
+        transform: translateX(-1px) translateY(1px); 
+    }
+    60% { 
+        transform: translateX(1px) translateY(-1px); 
+    }
+    70% { 
+        transform: translateX(-2px) translateY(0px); 
+    }
+    80% { 
+        transform: translateX(2px) translateY(1px); 
+    }
+    90% { 
+        transform: translateX(-1px) translateY(-1px); 
+    }
+}
+
+/* Apply enhanced shaking to breeding emulites */
+.throng.breeding {
+    animation: breedingShake 0.15s infinite;
+}
+
+/* Ensure all game elements maintain pixel-perfect rendering at any zoom */
+.throng, .house, .tree, .world-container * {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* Scrollbar styling */
+.feed::-webkit-scrollbar {
+    width: 6px;
+}
+
+.feed::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.feed::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.feed::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.throng .throng-name {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 4px;
+    white-space: nowrap;
+    pointer-events: auto;
+    text-align: center;
+    cursor: pointer;
+    z-index: 500;
+}
+
+.throng .throng-name:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translateX(-50%) scale(1.05);
+}
+
+/* UPDATED: Name tags in the overlay - always above everything */
+.name-tags-overlay .throng-name {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 4px;
+    border: none;
+    white-space: nowrap;
+    pointer-events: auto;
+    image-rendering: pixelated;
+    transform: translateX(-50%);
+    text-align: center;
+    cursor: pointer;
+}
+
+.name-tags-overlay .throng-name:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translateX(-50%) scale(1.05);
+}
+
+.name-info-popup {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: white;
+    animation: fadeInPopup 0.2s ease-out;
+    white-space: nowrap;
+}
+
+@keyframes gradientShift {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.wallet-address-link {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.2s ease;
+}
+
+.wallet-address-link:hover {
+    color: #66BB6A;
+    text-decoration: underline;
+}
+
+.wallet-address-link.anonymous {
+    color: #FFA726;
+    cursor: default;
+}
+
+.wallet-address-link.anonymous:hover {
+    text-decoration: none;
+}
+
+.name-timestamp {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 10px;
+}
+
+@keyframes fadeInPopup {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.name-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 12px;
+    padding: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 10000;
+    color: white;
+    font-family: 'Courier New', monospace;
+    min-width: 320px;
+}
+
+.name-popup h3 {
+    margin-bottom: 20px;
+    color: #4CAF50;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.name-popup input {
+    width: 100%;
+    padding: 12px;
+    margin: 15px 0;
+    background: rgba(40, 40, 40, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.name-popup input:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.name-popup .button-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.name-popup button {
+    padding: 12px 24px;
+    background: rgba(76, 175, 80, 0.8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Courier New', monospace;
+    min-width: 100px;
+}
+
+.name-popup button:hover {
+    background: rgba(76, 175, 80, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.name-popup .cancel-button {
+    background: rgba(255, 68, 68, 0.8);
+}
+
+.name-popup .cancel-button:hover {
+    background: rgba(255, 68, 68, 1);
+    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+}
+
+/* Normal emulite styling - let updateZIndexes handle depth sorting */
+.throng {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    transition: none;
+    z-index: 200;
+}
+
+/* Simple naming mode - no effects, just cursor and z-index */
+.throng.naming-mode {
+    cursor: pointer;
+    position: relative;
+    z-index: 400;
+    isolation: isolate;
+}
+
+/* Already named emulites during naming mode */
+.throng.already-named {
+    position: relative;
+    z-index: 400;
+    isolation: isolate;
+    cursor: not-allowed;
+    filter: grayscale(50%) brightness(0.7);
+    opacity: 0.6;
+}
+
+.throng.already-named:hover {
+    filter: grayscale(70%) brightness(0.5);
+    opacity: 0.4;
+}
+
+/* Keep selected emulite above overlay until naming is complete */
+.throng.selected-for-naming {
+    position: relative;
+    z-index: 450;
+    isolation: isolate;
+}
+
+/* Hoverable feed items */
+.feed-item-hoverable {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.feed-item-hoverable:hover {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border-left: 3px solid #4CAF50;
+    padding-left: 17px;
+}
+
+/* Element highlighting */
+.feed-highlight {
+    filter: brightness(1.5) drop-shadow(0 0 20px #4CAF50) drop-shadow(0 0 40px #4CAF50);
+    animation: feedHighlightPulse 1.5s ease-in-out infinite;
+    z-index: 999 !important;
+}
+
+@keyframes feedHighlightPulse {
+    0%, 100% {
+        filter: brightness(1.5) drop-shadow(0 0 20px #4CAF50) drop-shadow(0 0 40px #4CAF50);
+    }
+    50% {
+        filter: brightness(1.8) drop-shadow(0 0 30px #4CAF50) drop-shadow(0 0 60px #4CAF50);
+    }
+}
+
+/* Weather Effect Animations */
+@keyframes rainFall {
+    from {
+        top: -20px;
+        transform: translateX(0);
+    }
+    to {
+        top: 100vh;
+        transform: translateX(-20px);
+    }
+}
+
+@keyframes dustSwirl {
+    0% {
+        left: -10px;
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.8;
+    }
+    50% {
+        left: 50%;
+        transform: translateY(-20px) rotate(180deg);
+        opacity: 0.6;
+    }
+    90% {
+        opacity: 0.8;
+    }
+    100% {
+        left: 110%;
+        transform: translateY(10px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes snowFall {
+    0% {
+        top: -10px;
+        transform: translateX(0) rotate(0deg);
+    }
+    25% {
+        transform: translateX(10px) rotate(90deg);
+    }
+    50% {
+        transform: translateX(-5px) rotate(180deg);
+    }
+    75% {
+        transform: translateX(5px) rotate(270deg);
+    }
+    100% {
+        top: 100vh;
+        transform: translateX(0) rotate(360deg);
+    }
+}
+
+/* Weather overlay styling */
+.weather-overlay {
+    animation: weatherFadeIn 1s ease-in;
+}
+
+@keyframes weatherFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Egg falling animation styles */
+.egg-falling {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    transition: none;
+    z-index: 1000;
+}
+
+/* Optional: Add a subtle drop shadow to the falling egg */
+.egg-falling::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    width: 30px;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    opacity: 0.6;
+}
+
+/* Animation keyframes for the egg wobble effect */
+@keyframes eggWobble {
+    0%, 100% { 
+        transform: translateX(0) rotate(0deg); 
+    }
+    25% { 
+        transform: translateX(2px) rotate(2deg); 
+    }
+    75% { 
+        transform: translateX(-2px) rotate(-2deg); 
+    }
+}
+
+/* Optional: Add this class if you want a CSS-based wobble instead of JS */
+.egg-falling.wobbling {
+    animation: eggWobble 0.8s ease-in-out infinite;
+}
+
+.ufo-crashing {
+    position: absolute;
+    width: 84px;
+    height: 51px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+    transition: none;
+    z-index: 1000;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.ufo-smoke {
+    position: absolute;
+    pointer-events: none;
+}
+
+.ufo-smoke-container {
+    position: absolute;
+    pointer-events: none;
+    overflow: visible;
+}
+
+/* Add subtle glow to crashed UFOs */
+.ufo img {
+    filter: drop-shadow(0 0 3px rgba(255, 100, 0, 0.4));
+}
+
+.traits-popup {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    padding: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: white;
+    animation: fadeInPopup 0.2s ease-out;
+    min-width: 180px;
+    max-width: 220px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.traits-header {
+    background: transparent;
+    padding: 12px 16px;
+    font-weight: bold;
+    font-size: 12px;
+    text-align: left;
+    color: #FFFFFF;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+    border-radius: 10px 10px 0 0;
+}
+
+.traits-section {
+    padding: 15px 16px;
+    border-radius: 0 0 10px 10px;
+}
+
+.traits-label {
+    color: #FFFFFF;
+    font-weight: bold;
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+
+.traits-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.trait-tag {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    display: inline-block;
+}
+
+.named-by-row, .time-row {
+    margin: 8px 0 4px 0;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.named-by-label, .time-label {
+    color: #FFFFFF;
+    font-weight: normal;
+}
+
+.named-address, .named-timestamp {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.age-row {
+    margin: 8px 0 4px 0;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.age-label {
+    color: #FFFFFF;
+    font-weight: normal;
+}
+
+.age-value {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+/* Journal Interface Styles */
+.journal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.journal-container {
+    background: rgba(20, 20, 20, 0.7);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 800px;
+    height: 80%;
+    max-height: 700px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideInUp 0.4s ease-out;
+}
+
+.journal-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.journal-header h2 {
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+    font-family: 'Courier New', monospace;
+}
+
+.journal-close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 32px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.journal-close-btn:hover {
+    color: #ff6666;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.journal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 30px;
+}
+
+.journal-entry {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.journal-entry:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.journal-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.journal-author {
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+}
+
+.journal-timestamp {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+}
+
+.journal-entry-content {
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+}
+
+.journal-empty, .journal-error {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    padding: 60px 20px;
+    font-size: 16px;
+}
+
+.journal-error {
+    color: #ff6666;
+}
+
+/* Scrollbar for journal content */
+.journal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.journal-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.journal-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.journal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
