@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emulites Environment</title>
+    <style>
+        /* Loading screen styles - inline so they show immediately */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%;
+            background: linear-gradient(135deg, #2d5a27, #4a8c2a);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-family: 'Courier New', monospace;
+            color: white;
+        }
+        
+        .loading-logo {
+            width: 315px;
+            height: 59px;
+            margin-bottom: 30px;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        .loading-text {
+            font-size: 24px;
+            margin-bottom: 30px;
+            animation: breathe 2s ease-in-out infinite;
+        }
+        
+        .loading-dots {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        
+        .loading-dots span {
+            animation: blink 1.4s infinite both;
+        }
+        
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes breathe {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+        
+        .fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+        
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
+        
+        /* Hide main content initially */
+        .game-container {
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+        
+        .game-container.loaded {
+            opacity: 1;
+        }
+
+        /* Mobile blocking screen */
+        #mobileBlockScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2d5a27, #4a8c2a);
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000; /* Higher than loading screen */
+            font-family: 'Courier New', monospace;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .mobile-message {
+            font-size: 18px;
+            margin-top: 30px;
+            line-height: 1.6;
+            max-width: 300px;
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        .mobile-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 40px;
+            width: 100%;
+            max-width: 280px;
+            align-items: center;
+        }
+
+        .mobile-twitter-button {
+            padding: 12px 20px;
+            background: rgba(29, 161, 242, 0.7);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .mobile-twitter-button:hover {
+            background: rgba(29, 161, 242, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(29, 161, 242, 0.3);
+        }
+
+        .mobile-ca-container {
+            background: rgba(20, 20, 20, 0.7);
+            border-radius: 12px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            width: 100%;
+            text-align: center;
+        }
+
+        .mobile-ca-container:hover {
+            background: rgba(20, 20, 20, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .mobile-ca-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .mobile-ca-container.copied {
+            background: rgba(76, 175, 80, 0.7);
+            border-color: rgba(76, 175, 80, 0.3);
+        }
+
+        .mobile-ca-container.copied .mobile-ca-text {
+            color: #ffffff;
+        }
+
+/* Block screen for resolutions smaller than 1600x900 */
+@media (max-width: 1599px), (max-height: 899px) {
+    #mobileBlockScreen {
+        display: flex !important;
+    }
+    
+    .game-container {
+        display: none !important;
+    }
+    
+    #loadingScreen {
+        display: none !important;
+    }
+}
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
+        <div class="loading-text">Connecting to server</div>
+        <div class="loading-dots">
+            <span>.</span><span>.</span><span>.</span>
+        </div>
+    </div>
+
+    <!-- Mobile Block Screen -->
+    <div id="mobileBlockScreen">
+        <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
+            <div class="mobile-message">
+                This website is best viewed on Desktop. We require a minimum resolution of <strong>1600x900 pixels</strong>. If you are on a desktop or laptop and are still seeing this message, use <br><strong>CTRL + - (minus key)</strong> to zoom out and access the website.
+            </div>
+        
+        <div class="mobile-buttons">
+            <a href="https://x.com/Emulites" target="_blank" class="mobile-twitter-button">Follow on X</a>
+            <div class="mobile-ca-container" id="mobileCaContainer">
+                <div class="mobile-ca-text" id="mobileCaText">CA: Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden audio element for background music -->
+    <audio id="backgroundMusic" preload="auto" loop>
+        <source src="/audio/music.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <!-- Main Game Container -->
+    <div class="game-container">
+        <div class="world-area" id="worldArea">
+            <div class="world-container" id="worldContainer">
+                <!-- Emulites will be spawned here -->
+            </div>
+            <!-- NEW: Separate overlay for name tags -->
+            <div class="name-tags-overlay" id="nameTagsOverlay"></div>
+        </div>
+        
+<div class="wallet-social-container" id="walletSocialContainer">
+    <button class="connect-wallet-button" id="connectWalletBtn">Connect Phantom</button>
+    <a href="https://x.com/Emulites" target="_blank" class="twitter-button">Follow on X</a>
+    <div class="ca-container" id="caContainer">
+        <div class="ca-text" id="caText"></div>
+    </div>
+    <button class="documentation-button" id="documentationBtn">Documentation</button>
+</div>
+        
+        <div class="throng-balance-container" id="throngBalanceContainer" style="display: none;">
+            <div class="balance-header">
+                <div class="token-balance" id="tokenBalance">$EMULITES: 0</div>
+            </div>
+            
+            <div class="actions-list">
+                <button class="action-button" id="nameThrongBtn" style="display: none;">✏️ Name Emulite (1 $EMULITES)</button>
+            </div>
+            
+           <div class="admin-section" id="adminSection" style="display: none;">
+    <div class="admin-section-title">ADMIN PANEL</div>
+    <div class="actions-list">
+        <select class="admin-dropdown" id="adminDropdown">
+            <option value="" disabled selected>Select an action...</option>
+            <option value="buildHouse">🏠 Build House</option>
+            <option value="buildApartment">🏢 Build Apartment</option>
+            <option value="breeding">❤️ Breed Emulites</option>
+            <option value="plantTree">🌲 Plant Tree</option>
+            <option value="buildFirepit">🔥 Build Firepit</option>
+            <option value="discoverBones">🦴 Discover Bones</option>
+            <option value="dropEgg">🥚 Drop an Egg</option>
+            <option value="crashUFO">🛸 Crash UFO</option>
+            <option value="death">⚡ Lightning Strike</option>
+            <option value="fire">🔥 Burn Emulite</option>
+            <option value="rain">🌧️ Make it Rain</option>
+            <option value="tornado">🌪️ Tornado</option>
+            <option value="snow">❄️ Snow Storm</option>
+        </select>
+    </div>
+</div>
+        </div>
+        
+        <div class="zoom-container">
+            <div class="zoom-info">
+                <div class="control-hint">Click and hold to drag and pan, scroll to zoom in and out.</div>
+                <div class="zoom-display">
+                    <span class="zoom-label">Zoom:</span>
+                    <span class="zoom-value">100%</span>
+                </div>
+            </div>
+        </div>
+        
+<div class="sidebar">
+    <div class="automation-status-container" id="automationStatusContainer">
+        <div class="automation-status-text" id="automationStatusText">Thinking<span class="dots" id="automationDots">.</span></div>
+    </div>
+    
+    <div class="view-journals-container" id="viewJournalsContainer">
+        <div class="view-journals-text">View Journals</div>
+    </div>
+            
+            <div class="server-stats-container" id="serverStatsContainer">
+                <div class="stats-header">
+                    <h3>Server Stats</h3>
+                </div>
+                <div class="stats-content">
+                    <div class="stat-item">
+                        <div class="stat-label">Happiness:</div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill happiness-fill" id="happinessBar"></div>
+                            </div>
+                            <span class="progress-text" id="happinessText">50%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-item">
+    <div class="stat-label">Sentience:</div>
+    <div class="progress-bar-container">
+        <div class="progress-bar">
+            <div class="progress-fill sentience-fill" id="sentienceBar"></div>
+        </div>
+        <span class="progress-text" id="sentienceText">50%</span>
+    </div>
+</div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Population:</div>
+                        <div class="stat-value" id="populationValue">0</div>
+                    </div>
+                    
+                    <div class="stats-divider"></div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Birth Rate (24h):</div>
+                        <div class="stat-value" id="throngsBirthed24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Death Rate (24h):</div>
+                        <div class="stat-value" id="throngsDead24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Houses Built (24h):</div>
+                        <div class="stat-value" id="housesBuilt24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Houses Lost (24h):</div>
+                        <div class="stat-value" id="housesLost24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Trees Planted (24h):</div>
+                        <div class="stat-value" id="treesPlanted24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Trees Lost (24h):</div>
+                        <div class="stat-value" id="treesLost24h">0</div>
+                    </div>
+                    
+                    <div class="stat-item simple">
+                        <div class="stat-label">Weather Changes (24h):</div>
+                        <div class="stat-value" id="weatherChanges24h">0</div>
+                    </div>
+
+                    <div class="stat-item simple">
+                        <div class="stat-label">Mysteries:</div>
+                        <div class="stat-value" id="mysteriesValue">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="feed-container">
+                <div class="feed-header">
+                    <h3>Activity Feed</h3>
+                </div>
+                <div class="feed" id="activityFeed">
+                    <!-- Feed items will appear here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Audio Toggle Button - Positioned to the left of HUD Toggle -->
+        <button class="audio-toggle-button" id="audioToggleBtn">🔈</button>
+        
+        <!-- HUD Toggle Button - Fixed bottom right -->
+        <button class="hud-toggle-button" id="hudToggleBtn">Hide HUD</button>
+    </div>
+
+    <!-- Load Solana libraries directly -->
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script src="/solana-spl-token.js"></script>
+    <script>
+// Small screen detection and blocking
+const isSmallScreen = () => {
+    return (
+        /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        window.innerWidth < 1600 ||
+        window.innerHeight < 900 ||
+        ('ontouchstart' in window)
+    );
+};
+
+        // Mobile CA functionality
+        const setupMobileCA = () => {
+            const mobileCaContainer = document.getElementById('mobileCaContainer');
+            const mobileCaText = document.getElementById('mobileCaText');
+            
+            // Use the same contract address logic as your main game
+            const THRONG_TOKEN_MINT = 'B9iPvm8YybydhvMiKAuJuygEKuzspgxdavhFNzzUpump';
+            const shortAddress = THRONG_TOKEN_MINT.slice(0, 4) + '...' + THRONG_TOKEN_MINT.slice(-4);
+            
+            if (mobileCaText) {
+                mobileCaText.textContent = `CA: ${shortAddress}`;
+            }
+            
+            if (mobileCaContainer) {
+                mobileCaContainer.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(THRONG_TOKEN_MINT);
+                        
+                        mobileCaContainer.classList.add('copied');
+                        mobileCaText.textContent = 'Copied!';
+                        
+                        setTimeout(() => {
+                            mobileCaContainer.classList.remove('copied');
+                            mobileCaText.textContent = `CA: ${shortAddress}`;
+                        }, 2000);
+                        
+                    } catch (error) {
+                        console.error('Failed to copy:', error);
+                        // Fallback for older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = THRONG_TOKEN_MINT;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        
+                        try {
+                            document.execCommand('copy');
+                            mobileCaContainer.classList.add('copied');
+                            mobileCaText.textContent = 'Copied!';
+                            
+                            setTimeout(() => {
+                                mobileCaContainer.classList.remove('copied');
+                                mobileCaText.textContent = `CA: ${shortAddress}`;
+                            }, 2000);
+                        } catch (fallbackError) {
+                            console.error('Fallback copy failed:', fallbackError);
+                        }
+                        
+                        document.body.removeChild(textArea);
+                    }
+                });
+            }
+        };
+
+// Dynamic resize checking
+let gameInitialized = false; // Track if game has been initialized
+
+const checkScreenSize = () => {
+    const blockScreen = document.getElementById('mobileBlockScreen');
+    const gameContainer = document.querySelector('.game-container');
+    const loadingScreen = document.getElementById('loadingScreen');
+    
+    if (isSmallScreen()) {
+        // Show block screen
+        if (blockScreen) {
+            blockScreen.style.display = 'flex';
+        }
+        if (gameContainer) {
+            gameContainer.style.display = 'none';
+        }
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
+    } else {
+        // Hide block screen and show game
+        if (blockScreen) {
+            blockScreen.style.display = 'none';
+        }
+        if (gameContainer) {
+            gameContainer.style.display = 'flex';
+        }
+        
+        // Initialize game if it hasn't been initialized yet
+        if (!gameInitialized) {
+            gameInitialized = true;
+            if (loadingScreen) {
+                loadingScreen.style.display = 'flex';
+            }
+            initGame();
+        } else {
+            // Game already loaded, just show it
+            if (loadingScreen && !gameContainer.classList.contains('loaded')) {
+                loadingScreen.style.display = 'flex';
+            }
+        }
+    }
+};
+
+        // Simple and reliable initialization
+        const initGame = async () => {
+            try {
+                console.log('Starting game initialization...');
+                console.log('Solana Web3 available:', !!window.solanaWeb3);
+                
+                // Load the game bundle
+                const response = await fetch('/api/bundle');
+                const code = await response.text();
+                
+                const blob = new Blob([code], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
+                
+                // Import as module
+                await import(url);
+                URL.revokeObjectURL(url);
+                
+                console.log('Game loaded successfully');
+                
+                // Hide loading screen
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loadingScreen');
+                    const gameContainer = document.querySelector('.game-container');
+                    
+                    if (loadingScreen) {
+                        loadingScreen.classList.add('fade-out');
+                        setTimeout(() => loadingScreen.remove(), 500);
+                    }
+                    
+                    if (gameContainer) {
+                        gameContainer.classList.add('loaded');
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Failed to load game:', error);
+                
+                // Hide loading screen even on error
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.innerHTML = `
+                        <div class="loading-text">Failed to load game</div>
+                        <div style="color: #ff6666; font-size: 14px; margin-top: 20px;">
+                            Error: ${error.message}<br>
+                            Please refresh the page to try again
+                        </div>
+                    `;
+                }
+            }
+        };
+// Initial screen size check and setup
+const handleInitialization = () => {
+    // Set up CA functionality for blocked screen
+    setupMobileCA();
+    
+    // Add resize listener for dynamic checking
+    window.addEventListener('resize', checkScreenSize);
+    
+    // Initial check - this will handle game initialization
+    checkScreenSize();
+};
+        
+// Initialize when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', handleInitialization);
+} else {
+    handleInitialization();
+}
+    </script>
+</body>
+</html>
