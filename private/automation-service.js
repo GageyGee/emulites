@@ -2,15 +2,9 @@ const admin = require('firebase-admin');
 
 class AutomationService {
     constructor() {
-        // Initialize Firebase Admin SDK with environment variable credentials
+        // Firebase Admin should already be initialized in server.js
         if (!admin.apps.length) {
-            // Parse the service account from environment variable
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: 'emulites-fa2c9'
-            });
+            throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
         }
 
         // Action weights (should add up to 100%)
@@ -505,136 +499,284 @@ class AutomationService {
         }
     }
 
-  async performBreeding() {
-    try {
-        // Get all existing throngs
-        const throngsSnapshot = await this.db.collection('throngs').get();
-        const throngs = [];
-        throngsSnapshot.forEach(doc => {
-            throngs.push({ id: doc.id, ...doc.data() });
-        });
-
-        if (throngs.length < 2) {
-            console.log('Not enough throngs for breeding (need at least 2)');
+    async performDiscoverBones() {
+        try {
+            const worldSize = this.getVirtualWorldSize();
+            const boneWidth = 60;
+            const boneHeight = 40;
             
-            // Create feed entry about breeding failure
-            await this.db.collection('feed').add({
-                title: 'Breeding Failed',
-                description: 'You need at least 2 throngs to start breeding!',
+            const x = Math.random() * (worldSize.width - boneWidth);
+            const y = Math.random() * (worldSize.height - boneHeight);
+            
+            const boneId = 'bone_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const boneTypes = ['bones1', 'bones2'];
+            const boneType = boneTypes[Math.floor(Math.random() * boneTypes.length)];
+            const discoveryEventId = `bone-discovery-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+            
+            const bone = {
+                id: boneId,
+                x: x,
+                y: y,
+                type: boneType,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                action: 'breeding'
+                eventId: discoveryEventId
+            };
+            
+            const batch = this.db.batch();
+            batch.set(this.db.collection('bones').doc(boneId), bone);
+            batch.set(this.db.collection('feed').doc(discoveryEventId), {
+                title: 'Ancient Bones Discovered!',
+                description: 'Mysterious ancient bones have been unearthed! What secrets do they hold?',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'discoverbones',
+                boneId: boneId,
+                eventId: discoveryEventId
             });
-            return;
+            
+            await batch.commit();
+            console.log('Automated bone discovery completed:', boneId);
+            
+        } catch (error) {
+            console.error('Failed to discover bones:', error);
         }
-
-        // Select two random parents
-        const shuffled = throngs.sort(() => 0.5 - Math.random());
-        const parent1 = shuffled[0];
-        const parent2 = shuffled[1];
-
-        const meetingX = (parent1.x + parent2.x) / 2;
-        const meetingY = (parent1.y + parent2.y) / 2;
-        const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-        const sortedParentIds = [parent1.id, parent2.id].sort();
-        const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
-
-        // Generate traits (fallback traits for server-side)
-        const possibleTraits = [
-            'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
-            'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
-        ];
-        const traits = [];
-        for (let i = 0; i < 3; i++) {
-            const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
-            if (!traits.includes(trait)) {
-                traits.push(trait);
-            }
-        }
-
-        // Create breeding action
-        await this.db.collection('actions').add({
-            type: 'breeding',
-            parent1Id: parent1.id,
-            parent2Id: parent2.id,
-            newThrongId: newThrongId,
-            meetingX: meetingX,
-            meetingY: meetingY,
-            parent1StartX: parent1.x,
-            parent1StartY: parent1.y,
-            parent2StartX: parent2.x,
-            parent2StartY: parent2.y,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            eventId: breedingEventId,
-            preGeneratedTraits: traits
-        });
-
-        // Create breeding notification
-        await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
-            title: 'Breeding',
-            description: 'Two Emulites have found love! They are coming together to begin breeding.',
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            action: 'breeding',
-            eventId: breedingEventId
-        });
-
-        // After creating the breeding action, schedule the throng creation server-side
-        setTimeout(async () => {
-            try {
-                console.log('Starting server-side throng creation for:', newThrongId);
-                
-                const worldSize = this.getVirtualWorldSize();
-                const offsetDistance = 60;
-                const angle = Math.random() * 2 * Math.PI;
-                const babyX = meetingX + Math.cos(angle) * offsetDistance;
-                const babyY = meetingY + Math.sin(angle) * offsetDistance;
-                
-                const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
-                const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
-
-                // Create the throng directly using admin SDK
-                const admin = require('firebase-admin');
-                const db = admin.firestore();
-                
-                const newThrong = {
-                    id: newThrongId,
-                    x: finalBabyX,
-                    y: finalBabyY,
-                    currentSprite: 'idle',
-                    direction: 'down',
-                    animationFrame: 0,
-                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    traits: traits
-                };
-
-                // Create throng first
-                await db.collection('throngs').doc(newThrongId).set(newThrong);
-                console.log('Throng created successfully');
-                
-                // Create birth feed entry
-                await db.collection('feed').doc(`birth-${newThrongId}`).set({
-                    title: 'Birth',
-                    description: 'A new Emulite has been born! The group grows with this precious new life.',
-                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    action: 'birth',
-                    throngId: newThrongId
-                });
-                console.log('Birth feed entry created successfully');
-                
-                console.log('Server-side throng creation completed successfully:', newThrongId);
-                
-            } catch (error) {
-                console.error('Failed to create throng server-side:', error);
-                console.error('Error details:', error.message);
-            }
-        }, 15000); // Wait 15 seconds for breeding animation to complete
-
-        console.log('Automated breeding initiated:', breedingEventId);
-
-    } catch (error) {
-        console.error('Failed to perform automated breeding:', error);
     }
-}
+
+    async performDropEgg() {
+        try {
+            const worldSize = this.getVirtualWorldSize();
+            const eggWidth = 48;
+            const eggHeight = 48;
+            
+            const targetX = Math.random() * (worldSize.width - eggWidth);
+            const targetY = Math.random() * (worldSize.height - eggHeight);
+            
+            const eggEventId = `egg-drop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const eggId = 'egg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Create the egg drop action for animation
+            await this.db.collection('actions').add({
+                type: 'dropegg',
+                targetX: targetX,
+                targetY: targetY,
+                eggId: eggId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: eggEventId
+            });
+            
+            // Create the permanent egg document
+            await this.db.collection('eggs').doc(eggId).set({
+                id: eggId,
+                x: targetX,
+                y: targetY,
+                type: 'egg',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: eggEventId
+            });
+            
+            // Create feed entry immediately
+            await this.db.collection('feed').doc(`egg-drop-${eggEventId}`).set({
+                title: 'Egg Dropped!',
+                description: 'A mysterious egg has fallen from the sky! What could be inside?',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'dropegg',
+                eventId: eggEventId,
+                eggId: eggId
+            });
+            
+            console.log('Automated egg drop triggered with event ID:', eggEventId);
+            
+        } catch (error) {
+            console.error('Failed to drop egg:', error);
+        }
+    }
+
+    async performCrashUFO() {
+        try {
+            const worldSize = this.getVirtualWorldSize();
+            const ufoWidth = 84;
+            const ufoHeight = 51;
+            
+            const targetX = Math.random() * (worldSize.width - ufoWidth);
+            const targetY = Math.random() * (worldSize.height - ufoHeight);
+            
+            const ufoEventId = `ufo-crash-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const ufoId = 'ufo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Create the UFO crash action for animation
+            await this.db.collection('actions').add({
+                type: 'crashufo',
+                targetX: targetX,
+                targetY: targetY,
+                ufoId: ufoId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: ufoEventId
+            });
+            
+            // Create the permanent UFO document
+            await this.db.collection('ufos').doc(ufoId).set({
+                id: ufoId,
+                x: targetX,
+                y: targetY,
+                type: 'crashed',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: ufoEventId
+            });
+            
+            // Create feed entry immediately
+            await this.db.collection('feed').doc(`ufo-crash-${ufoEventId}`).set({
+                title: 'UFO CRASH!',
+                description: 'A mysterious UFO has crashed from the sky! Smoke billows from the wreckage.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'crashufo',
+                eventId: ufoEventId,
+                ufoId: ufoId
+            });
+            
+            console.log('Automated UFO crash triggered with event ID:', ufoEventId);
+            
+        } catch (error) {
+            console.error('Failed to crash UFO:', error);
+        }
+    }
+
+    async performBreeding() {
+        try {
+            // Get all existing throngs
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            const throngs = [];
+            throngsSnapshot.forEach(doc => {
+                throngs.push({ id: doc.id, ...doc.data() });
+            });
+
+            if (throngs.length < 2) {
+                console.log('Not enough throngs for breeding (need at least 2)');
+                
+                // Create feed entry about breeding failure
+                await this.db.collection('feed').add({
+                    title: 'Breeding Failed',
+                    description: 'You need at least 2 throngs to start breeding!',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'breeding'
+                });
+                return;
+            }
+
+            // Select two random parents
+            const shuffled = throngs.sort(() => 0.5 - Math.random());
+            const parent1 = shuffled[0];
+            const parent2 = shuffled[1];
+
+            const meetingX = (parent1.x + parent2.x) / 2;
+            const meetingY = (parent1.y + parent2.y) / 2;
+            const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            const sortedParentIds = [parent1.id, parent2.id].sort();
+            const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
+
+            // Generate traits (fallback traits for server-side)
+            const possibleTraits = [
+                'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
+                'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
+            ];
+            const traits = [];
+            for (let i = 0; i < 3; i++) {
+                const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
+                if (!traits.includes(trait)) {
+                    traits.push(trait);
+                }
+            }
+
+            // Create breeding action
+            await this.db.collection('actions').add({
+                type: 'breeding',
+                parent1Id: parent1.id,
+                parent2Id: parent2.id,
+                newThrongId: newThrongId,
+                meetingX: meetingX,
+                meetingY: meetingY,
+                parent1StartX: parent1.x,
+                parent1StartY: parent1.y,
+                parent2StartX: parent2.x,
+                parent2StartY: parent2.y,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: breedingEventId,
+                preGeneratedTraits: traits
+            });
+
+            // Create breeding notification
+            await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
+                title: 'Breeding',
+                description: 'Two Emulites have found love! They are coming together to begin breeding.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'breeding',
+                eventId: breedingEventId
+            });
+
+            // After creating the breeding action, schedule the throng creation server-side
+            setTimeout(async () => {
+                try {
+                    console.log('Starting server-side throng creation for:', newThrongId);
+                    
+                    const worldSize = this.getVirtualWorldSize();
+                    const offsetDistance = 60;
+                    const angle = Math.random() * 2 * Math.PI;
+                    const babyX = meetingX + Math.cos(angle) * offsetDistance;
+                    const babyY = meetingY + Math.sin(angle) * offsetDistance;
+                    
+                    const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
+                    const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
+
+                    const newThrong = {
+                        id: newThrongId,
+                        x: finalBabyX,
+                        y: finalBabyY,
+                        currentSprite: 'idle',
+                        direction: 'down',
+                        animationFrame: 0,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        traits: traits
+                    };
+
+                    // Create throng first
+                    await this.db.collection('throngs').doc(newThrongId).set(newThrong);
+                    console.log('Throng created successfully');
+                    
+                    // Create birth feed entry
+                    await this.db.collection('feed').doc(`birth-${newThrongId}`).set({
+                        title: 'Birth',
+                        description: 'A new Emulite has been born! The group grows with this precious new life.',
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        action: 'birth',
+                        throngId: newThrongId
+                    });
+                    console.log('Birth feed entry created successfully');
+                    
+                    console.log('Server-side throng creation completed successfully:', newThrongId);
+                    
+                } catch (error) {
+                    console.error('Failed to create throng server-side:', error);
+                    console.error('Error details:', error.message);
+                }
+            }, 15000); // Wait 15 seconds for breeding animation to complete
+
+            console.log('Automated breeding initiated:', breedingEventId);
+
+        } catch (error) {
+            console.error('Failed to perform automated breeding:', error);
+        }
+    }
+
+    async performDeath() {
+        // This method can remain the same as it was in your original code
+        // Only adding it here for completeness if it was missing
+        console.log('performDeath called but not implemented in automation service');
+    }
+
+    async performFire() {
+        // This method can remain the same as it was in your original code
+        // Only adding it here for completeness if it was missing
+        console.log('performFire called but not implemented in automation service');
+    }
 
     async triggerRainEvent() {
         try {
