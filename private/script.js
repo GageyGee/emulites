@@ -842,10 +842,9 @@ async connectWallet() {
         const response = await window.solana.connect();
         this.wallet = response.publicKey;
         
-        // Just log admin wallet detection - no Firebase auth needed
+        // Simple admin detection - no Firebase auth needed
         if (this.isAdminWallet()) {
             console.log('Admin wallet detected');
-            this.showNotification('success', 'Admin Access', 'Admin privileges enabled.', 3000);
         }
         
         this.onWalletConnect();
