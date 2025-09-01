@@ -717,40 +717,63 @@ let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
 
 try {
     console.log('=== AUTOMATION SERVICE TRAIT GENERATION ===');
-    console.log('Attempting to call Claude API...');
+    console.log('Attempting to call Claude API directly...');
     
-    // Since the automation service runs on the same server as the API,
-    // we can call it internally using localhost
-    const apiUrl = 'http://localhost:3000/api/claude/generate-traits';
+    // Get the Claude API key from environment
+    const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
     
-    console.log('API URL:', apiUrl);
+    if (!CLAUDE_API_KEY) {
+        console.log('❌ Claude API key not configured, using fallback traits');
+        throw new Error('Claude API key not configured');
+    }
     
-    const response = await fetch(apiUrl, {
+    console.log('✅ Claude API key is configured');
+    
+    // Call Claude API directly instead of going through our own endpoint
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-api-key': CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01'
         },
-        timeout: 10000 // 10 second timeout
+        body: JSON.stringify({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 100,
+            messages: [{
+                role: 'user',
+                content: 'Generate exactly 3 unique personality traits for a digital creature called an Emulite. Choose from traits like: Curious, Loyal, Witty, Creative, Humble, Energetic, Wise, Clever as examples, but dont just take from this list, create them on your own. Respond only with a JSON object in this exact format: {"traits": ["trait1", "trait2", "trait3"]}'
+            }]
+        })
     });
     
-    console.log('Response status:', response.status);
+    console.log('Claude API response status:', response.status);
     console.log('Response ok:', response.ok);
     
     if (response.ok) {
         const data = await response.json();
-        console.log('API Response data:', JSON.stringify(data, null, 2));
+        console.log('Claude API response data:', JSON.stringify(data, null, 2));
         
-        if (data.traits && Array.isArray(data.traits) && data.traits.length === 3) {
-            traits = data.traits;
-            console.log('✅ Successfully generated AI traits:', traits);
-        } else {
-            console.log('❌ Invalid API response format, using fallback traits');
-            console.log('Expected: {traits: [string, string, string]}');
-            console.log('Received:', data);
+        const responseText = data.content[0].text.trim();
+        console.log('Claude response text:', responseText);
+        
+        try {
+            const parsed = JSON.parse(responseText);
+            if (parsed.traits && Array.isArray(parsed.traits) && parsed.traits.length === 3) {
+                traits = parsed.traits;
+                console.log('✅ Successfully generated AI traits:', traits);
+            } else {
+                console.log('❌ Invalid traits format, using fallback traits');
+                console.log('Expected: {traits: [string, string, string]}');
+                console.log('Received:', parsed);
+            }
+        } catch (parseError) {
+            console.error('❌ Failed to parse Claude response as JSON:', parseError);
+            console.error('Raw response text was:', responseText);
         }
     } else {
         const errorText = await response.text();
-        console.log('❌ API call failed with status:', response.status);
+        console.log('❌ Claude API call failed with status:', response.status);
         console.log('Error response:', errorText);
     }
 } catch (error) {
