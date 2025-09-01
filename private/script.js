@@ -4078,7 +4078,7 @@ findValidFirepitPosition() {
     };
 }
     
- async performBreeding() {
+async performBreeding() {
     if (this.throngs.size < 2) {
         await addDoc(collection(this.db, 'feed'), {
             title: 'Breeding Failed',
@@ -4099,8 +4099,23 @@ findValidFirepitPosition() {
     
     if (!parent1 || !parent2) return;
     
-    const meetingX = (parent1.data.x + parent2.data.x) / 2;
-    const meetingY = (parent1.data.y + parent2.data.y) / 2;
+    // Calculate meeting point with more variation
+    const worldSize = this.getVirtualWorldSize();
+    
+    // Instead of simple midpoint, create a more dynamic meeting location
+    const baseX = (parent1.data.x + parent2.data.x) / 2;
+    const baseY = (parent1.data.y + parent2.data.y) / 2;
+    
+    // Add random offset to make each meeting unique (within 100px radius)
+    const offsetRadius = 100;
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const randomDistance = Math.random() * offsetRadius;
+    
+    const meetingX = Math.max(50, Math.min(worldSize.width - 50, 
+        baseX + Math.cos(randomAngle) * randomDistance));
+    const meetingY = Math.max(50, Math.min(worldSize.height - 50, 
+        baseY + Math.sin(randomAngle) * randomDistance));
+    
     const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
     // Create a deterministic breeding event ID based on parent IDs to ensure uniqueness across users
