@@ -959,6 +959,9 @@ updateActionButtons() {
         return;
     }
 
+    // Check if this is the admin wallet for UI display purposes only
+    const isAdminWallet = this.wallet.toString() === window.ADMIN_WALLET_ADDRESS;
+
     // Show name button for all connected wallets
     if (nameThrongBtn) {
         nameThrongBtn.style.display = 'block';
@@ -971,8 +974,14 @@ updateActionButtons() {
         }
     }
 
-    // Show admin section for all users - server will validate
-    if (adminSection) adminSection.style.display = 'block';
+    // Show admin section ONLY for admin wallet
+    if (adminSection) {
+        if (isAdminWallet) {
+            adminSection.style.display = 'block';
+        } else {
+            adminSection.style.display = 'none';
+        }
+    }
     
     weatherButtons.forEach(btn => {
         btn.style.display = 'block';
