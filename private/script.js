@@ -131,7 +131,7 @@ this.serverStats = {
         this.connection = null;
         // Use the correct token from solana-config.js
         this.THRONG_TOKEN_MINT = window.SOLANA_CONFIG?.THRONG_TOKEN_MINT || 'B9iPvm8YybydhvMiKAuJuygEKuzspgxdavhFNzzUpump';
-        this.RPC_URL = window.SOLANA_CONFIG?.RPC_URL || 'https://radial-chaotic-pool.solana-mainnet.quiknode.pro/192e8e76f0a288f5a32ace0b676f7f34778f219f/';
+        this.RPC_URL = window.RPC_URL || 'https://api.mainnet-beta.solana.com';
         this.BURN_ADDRESS = window.SOLANA_CONFIG?.BURN_ADDRESS || '1nc1nerator11111111111111111111111111111111';
         this.tokenBalance = 0;
         this.isNamingMode = false;
