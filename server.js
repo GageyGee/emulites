@@ -123,6 +123,7 @@ window.db = db;
 window.auth = auth;
 window.app = app;
 window.ADMIN_WALLET_ADDRESS = "${process.env.ADMIN_WALLET_ADDRESS}";
+window.RPC_URL = "${process.env.RPC_URL}";
 
 // Export for module usage
 export { db };
