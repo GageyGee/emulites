@@ -200,14 +200,37 @@
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen">
-        <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
-        <div class="loading-text">Connecting to server</div>
-        <div class="loading-dots">
-            <span>.</span><span>.</span><span>.</span>
-        </div>
-    </div>
+   <script>
+       // IMMEDIATE POPUP BLOCKING - Must run before any other scripts
+       window.alert = function(message) {
+           console.log('Blocked alert:', message);
+           return false;
+       };
+       
+       window.prompt = function(message, defaultText) {
+           console.log('Blocked prompt:', message);
+           return null;
+       };
+       
+       window.confirm = function(message) {
+           console.log('Blocked confirm:', message);
+           return false;
+       };
+       
+       window.eval = function() {
+           console.log('eval() blocked for security');
+           return null;
+       };
+   </script>
+   
+   <!-- Loading Screen -->
+   <div id="loadingScreen">
+       <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
+       <div class="loading-text">Connecting to server</div>
+       <div class="loading-dots">
+           <span>.</span><span>.</span><span>.</span>
+       </div>
+   </div>
 
     <!-- Mobile Block Screen -->
     <div id="mobileBlockScreen">
