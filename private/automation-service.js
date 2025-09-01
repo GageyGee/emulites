@@ -672,7 +672,7 @@ scheduleNextAction() {
         }
     }
 
-    async performBreeding() {
+ async performBreeding() {
     try {
         console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
         // Get all existing throngs
@@ -700,22 +700,12 @@ scheduleNextAction() {
         const parent1 = shuffled[0];
         const parent2 = shuffled[1];
 
-        // Calculate meeting point with more variation
+        // Generate completely random meeting point anywhere on the map
         const worldSize = this.getVirtualWorldSize();
+        const edgeBuffer = 100; // Keep away from edges
         
-        // Instead of simple midpoint, create a more dynamic meeting location
-        const baseX = (parent1.x + parent2.x) / 2;
-        const baseY = (parent1.y + parent2.y) / 2;
-        
-        // Add random offset to make each meeting unique (within 100px radius)
-        const offsetRadius = 100;
-        const randomAngle = Math.random() * 2 * Math.PI;
-        const randomDistance = Math.random() * offsetRadius;
-        
-        const meetingX = Math.max(50, Math.min(worldSize.width - 50, 
-            baseX + Math.cos(randomAngle) * randomDistance));
-        const meetingY = Math.max(50, Math.min(worldSize.height - 50, 
-            baseY + Math.sin(randomAngle) * randomDistance));
+        const meetingX = edgeBuffer + Math.random() * (worldSize.width - edgeBuffer * 2);
+        const meetingY = edgeBuffer + Math.random() * (worldSize.height - edgeBuffer * 2);
 
         const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
