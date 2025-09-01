@@ -2,36 +2,36 @@ const admin = require('firebase-admin');
 
 class AutomationService {
     constructor() {
-        // Firebase Admin should already be initialized in server.js
-        if (!admin.apps.length) {
-            throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
-        }
-
-        // Action weights (should add up to 100%)
-        this.actions = [
-            { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
-            { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
-            { name: 'plantTree', weight: 50, method: this.performPlantTree.bind(this) },
-            { name: 'buildFirepit', weight: 20, method: this.performBuildFirepit.bind(this) },
-            { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
-            { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
-            { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
-            { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) }
-        ];
-
-        this.db = admin.firestore();
-        this.auth = admin.auth();
-        this.isRunning = false;
-        this.currentTimeout = null;
-        this.nextActionTime = null;
-        this.actionDuration = 0;
-
-        // Initialize authentication for database operations
-        this.initializeAuth();
-        this.initializeServerStats();
-
-        console.log('AutomationService initialized with Firebase Admin SDK');
+    // Firebase Admin should already be initialized in server.js
+    if (!admin.apps.length) {
+        throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
     }
+
+    // KEEP all your actions array exactly as it was
+    this.actions = [
+        { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
+        { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
+        { name: 'plantTree', weight: 50, method: this.performPlantTree.bind(this) },
+        { name: 'buildFirepit', weight: 20, method: this.performBuildFirepit.bind(this) },
+        { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
+        { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
+        { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
+        { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) }
+    ];
+
+    this.db = admin.firestore();
+    this.auth = admin.auth();
+    this.isRunning = false;
+    this.currentTimeout = null;
+    this.nextActionTime = null;
+    this.actionDuration = 0;
+
+    // Remove complex authentication - Firebase Admin SDK works directly
+    console.log('AutomationService initialized with Firebase Admin SDK');
+    
+    // Initialize server stats
+    this.initializeServerStats();
+}
 
     async initializeAuth() {
         try {
