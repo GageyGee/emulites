@@ -1,0 +1,780 @@
+const admin = require('firebase-admin');
+
+class AutomationService {
+    constructor() {
+        // Initialize Firebase Admin SDK with environment variable credentials
+        if (!admin.apps.length) {
+            // Parse the service account from environment variable
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+            
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: 'emulites-fa2c9'
+            });
+        }
+
+        // Action weights (should add up to 100%)
+        this.actions = [
+            { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
+            { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
+            { name: 'plantTree', weight: 50, method: this.performPlantTree.bind(this) },
+            { name: 'buildFirepit', weight: 20, method: this.performBuildFirepit.bind(this) },
+            { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
+            { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
+            { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
+            { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) }
+        ];
+
+        this.db = admin.firestore();
+        this.auth = admin.auth();
+        this.isRunning = false;
+        this.currentTimeout = null;
+        this.nextActionTime = null;
+        this.actionDuration = 0;
+
+        // Initialize authentication for database operations
+        this.initializeAuth();
+
+        console.log('AutomationService initialized with Firebase Admin SDK');
+    }
+
+    async initializeAuth() {
+        try {
+            // Create a custom token for the automation service with admin claims
+            this.customToken = await this.auth.createCustomToken('automation-service', {
+                admin: true,
+                service: 'automation'
+            });
+            
+            console.log('Automation service authenticated with admin privileges');
+        } catch (error) {
+            console.error('Failed to create automation service token:', error);
+        }
+    }
+
+    start() {
+        if (this.isRunning) {
+            console.log('Automation service already running');
+            return;
+        }
+
+        this.isRunning = true;
+        console.log('Starting automation service...');
+        this.scheduleNextAction();
+    }
+
+    stop() {
+        this.isRunning = false;
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = null;
+        }
+        console.log('Automation service stopped');
+    }
+
+    getTimeUntilNextAction() {
+        if (!this.nextActionTime || !this.isRunning) return 0;
+        const now = Date.now();
+        return Math.max(0, this.nextActionTime - now);
+    }
+
+    getTotalActionTime() {
+        return this.actionDuration;
+    }
+
+    scheduleNextAction() {
+        if (!this.isRunning) return;
+        
+        // Random delay between 20-40 minutes (1200000ms - 2400000ms)
+        const delay = Math.floor(Math.random() * (2400000 - 1200000 + 1)) + 1200000;
+        this.actionDuration = delay;
+        this.nextActionTime = Date.now() + delay;
+        
+        const minutes = Math.round(delay / 60000 * 10) / 10;
+        console.log(`Next automated action scheduled in ${minutes} minutes`);
+        this.currentTimeout = setTimeout(() => {
+            this.executeRandomAction();
+            this.scheduleNextAction(); // Schedule the next one
+        }, delay);
+    }
+
+    executeRandomAction() {
+        const selectedAction = this.selectWeightedAction();
+        console.log(`Executing automated action: ${selectedAction.name}`);
+        
+        try {
+            selectedAction.method();
+        } catch (error) {
+            console.error(`Error executing automated action ${selectedAction.name}:`, error);
+        }
+    }
+
+    selectWeightedAction() {
+        const totalWeight = this.actions.reduce((sum, action) => sum + action.weight, 0);
+        let random = Math.random() * totalWeight;
+
+        for (const action of this.actions) {
+            random -= action.weight;
+            if (random <= 0) {
+                return action;
+            }
+        }
+
+        // Fallback to first action if something goes wrong
+        return this.actions[0];
+    }
+
+    // Helper method to get virtual world size (matches client-side logic)
+    getVirtualWorldSize() {
+        // Using same logic as client - 150% of a standard viewport
+        const viewportWidth = 1600; // Standard desktop width
+        const viewportHeight = 900; // Standard desktop height
+        
+        return {
+            width: viewportWidth * 1.5,
+            height: viewportHeight * 1.5
+        };
+    }
+
+    // Helper method to find valid house position
+    async findValidHousePosition() {
+        const worldSize = this.getVirtualWorldSize();
+        const houseWidth = 126;
+        const houseHeight = 120;
+        const edgeBuffer = 25;
+        
+        // Get existing houses and apartments to avoid collisions
+        const housesSnapshot = await this.db.collection('houses').get();
+        const apartmentsSnapshot = await this.db.collection('apartments').get();
+        
+        const existingBuildings = [];
+        housesSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 126, height: 120 });
+        });
+        apartmentsSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 156, height: 213 });
+        });
+
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (attempts < maxAttempts) {
+            const x = Math.random() * (worldSize.width - houseWidth - edgeBuffer * 2) + edgeBuffer;
+            const y = Math.random() * (worldSize.height - houseHeight - edgeBuffer * 2) + edgeBuffer;
+            
+            // Check for collisions
+            let validPosition = true;
+            for (const building of existingBuildings) {
+                const buffer = 10;
+                const dx = Math.abs(x - building.x);
+                const dy = Math.abs(y - building.y);
+                const combinedBufferX = (houseWidth + building.width) / 2 + buffer;
+                const combinedBufferY = (houseHeight + building.height) / 2 + buffer;
+                
+                if (dx < combinedBufferX && dy < combinedBufferY) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            if (validPosition) {
+                return { x, y };
+            }
+            attempts++;
+        }
+        
+        // Fallback position if no valid position found
+        return {
+            x: Math.random() * (worldSize.width - houseWidth),
+            y: Math.random() * (worldSize.height - houseHeight)
+        };
+    }
+
+    // Helper method to find valid apartment position
+    async findValidApartmentPosition() {
+        const worldSize = this.getVirtualWorldSize();
+        const apartmentWidth = 156;
+        const apartmentHeight = 213;
+        const edgeBuffer = 25;
+        
+        // Get existing houses and apartments
+        const housesSnapshot = await this.db.collection('houses').get();
+        const apartmentsSnapshot = await this.db.collection('apartments').get();
+        
+        const existingBuildings = [];
+        housesSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 126, height: 120 });
+        });
+        apartmentsSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 156, height: 213 });
+        });
+
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (attempts < maxAttempts) {
+            const x = Math.random() * (worldSize.width - apartmentWidth - edgeBuffer * 2) + edgeBuffer;
+            const y = Math.random() * (worldSize.height - apartmentHeight - edgeBuffer * 2) + edgeBuffer;
+            
+            // Check for collisions
+            let validPosition = true;
+            for (const building of existingBuildings) {
+                const buffer = 10;
+                const dx = Math.abs(x - building.x);
+                const dy = Math.abs(y - building.y);
+                const combinedBufferX = (apartmentWidth + building.width) / 2 + buffer;
+                const combinedBufferY = (apartmentHeight + building.height) / 2 + buffer;
+                
+                if (dx < combinedBufferX && dy < combinedBufferY) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            if (validPosition) {
+                return { x, y };
+            }
+            attempts++;
+        }
+        
+        return {
+            x: Math.random() * (worldSize.width - apartmentWidth),
+            y: Math.random() * (worldSize.height - apartmentHeight)
+        };
+    }
+
+    // Helper method to find valid tree position
+    async findValidTreePosition() {
+        const worldSize = this.getVirtualWorldSize();
+        const treeWidth = 39;
+        const treeHeight = 69;
+        const houseBuffer = 25;
+        
+        // Get existing houses to avoid placing trees too close
+        const housesSnapshot = await this.db.collection('houses').get();
+        const apartmentsSnapshot = await this.db.collection('apartments').get();
+        
+        const existingBuildings = [];
+        housesSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 126, height: 120 });
+        });
+        apartmentsSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 156, height: 213 });
+        });
+
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (attempts < maxAttempts) {
+            const x = Math.random() * (worldSize.width - treeWidth);
+            const y = Math.random() * (worldSize.height - treeHeight);
+            
+            let validPosition = true;
+            for (const building of existingBuildings) {
+                const dx = Math.abs(x - building.x);
+                const dy = Math.abs(y - building.y);
+                
+                if (dx < (building.width + treeWidth) / 2 + houseBuffer && 
+                    dy < (building.height + treeHeight) / 2 + houseBuffer) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            if (validPosition) {
+                return { x, y };
+            }
+            attempts++;
+        }
+        
+        return {
+            x: Math.random() * (worldSize.width - treeWidth),
+            y: Math.random() * (worldSize.height - treeHeight)
+        };
+    }
+
+    async findValidFirepitPosition() {
+        const worldSize = this.getVirtualWorldSize();
+        const firepitWidth = 48;
+        const firepitHeight = 54;
+        const edgeBuffer = 25;
+        
+        // Get existing buildings to avoid collisions
+        const housesSnapshot = await this.db.collection('houses').get();
+        const apartmentsSnapshot = await this.db.collection('apartments').get();
+        const firepitsSnapshot = await this.db.collection('firepits').get();
+        
+        const existingBuildings = [];
+        housesSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 126, height: 120 });
+        });
+        apartmentsSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 156, height: 213 });
+        });
+        firepitsSnapshot.forEach(doc => {
+            const data = doc.data();
+            existingBuildings.push({ x: data.x, y: data.y, width: 48, height: 54 });
+        });
+
+        let attempts = 0;
+        const maxAttempts = 100;
+        
+        while (attempts < maxAttempts) {
+            const x = Math.random() * (worldSize.width - firepitWidth - edgeBuffer * 2) + edgeBuffer;
+            const y = Math.random() * (worldSize.height - firepitHeight - edgeBuffer * 2) + edgeBuffer;
+            
+            // Check for collisions
+            let validPosition = true;
+            for (const building of existingBuildings) {
+                const buffer = 10;
+                const dx = Math.abs(x - building.x);
+                const dy = Math.abs(y - building.y);
+                const combinedBufferX = (firepitWidth + building.width) / 2 + buffer;
+                const combinedBufferY = (firepitHeight + building.height) / 2 + buffer;
+                
+                if (dx < combinedBufferX && dy < combinedBufferY) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            if (validPosition) {
+                return { x, y };
+            }
+            attempts++;
+        }
+        
+        // Fallback position if no valid position found
+        return {
+            x: Math.random() * (worldSize.width - firepitWidth),
+            y: Math.random() * (worldSize.height - firepitHeight)
+        };
+    }
+
+    // Action implementations
+    async performBuilding() {
+        try {
+            const position = await this.findValidHousePosition();
+            const houseId = 'house_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const houseType = 'house1';
+            const buildingEventId = `building-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+            
+            // Create house document
+            const house = {
+                id: houseId,
+                x: position.x,
+                y: position.y,
+                type: houseType,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: buildingEventId
+            };
+            
+            // Create both house and feed entry
+            const batch = this.db.batch();
+            batch.set(this.db.collection('houses').doc(houseId), house);
+            batch.set(this.db.collection('feed').doc(buildingEventId), {
+                title: 'House Built',
+                description: 'A new house has been constructed! The settlement grows stronger.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'building',
+                houseId: houseId,
+                eventId: buildingEventId
+            });
+            
+            await batch.commit();
+            console.log('Automated house building completed:', houseId);
+            
+        } catch (error) {
+            console.error('Failed to perform automated building:', error);
+        }
+    }
+
+    async performApartmentBuilding() {
+        try {
+            const position = await this.findValidApartmentPosition();
+            const apartmentId = 'apartment_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const apartmentType = 'apartment1';
+            const buildingEventId = `apartment-building-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+            
+            const apartment = {
+                id: apartmentId,
+                x: position.x,
+                y: position.y,
+                type: apartmentType,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: buildingEventId
+            };
+            
+            const batch = this.db.batch();
+            batch.set(this.db.collection('apartments').doc(apartmentId), apartment);
+            batch.set(this.db.collection('feed').doc(buildingEventId), {
+                title: 'Apartment Built',
+                description: 'A new apartment building has been constructed! The settlement grows ever taller.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'apartment-building',
+                apartmentId: apartmentId,
+                eventId: buildingEventId
+            });
+            
+            await batch.commit();
+            console.log('Automated apartment building completed:', apartmentId);
+            
+        } catch (error) {
+            console.error('Failed to perform automated apartment building:', error);
+        }
+    }
+
+    async performBuildFirepit() {
+        try {
+            const position = await this.findValidFirepitPosition();
+            const firepitId = 'firepit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const firepitType = 'firepit1';
+            const firepitEventId = `firepit-build-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+            
+            // Create firepit document
+            const firepit = {
+                id: firepitId,
+                x: position.x,
+                y: position.y,
+                type: firepitType,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: firepitEventId
+            };
+            
+            // Create both firepit and feed entry
+            const batch = this.db.batch();
+            batch.set(this.db.collection('firepits').doc(firepitId), firepit);
+            batch.set(this.db.collection('feed').doc(firepitEventId), {
+                title: 'Firepit Built',
+                description: 'A cozy firepit has been constructed! Warm flames dance and smoke rises into the sky.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'buildfirepit',
+                firepitId: firepitId,
+                eventId: firepitEventId
+            });
+            
+            await batch.commit();
+            console.log('Automated firepit building completed:', firepitId);
+            
+        } catch (error) {
+            console.error('Failed to perform automated firepit building:', error);
+        }
+    }
+
+    async performPlantTree() {
+        try {
+            const position = await this.findValidTreePosition();
+            const treeId = 'tree_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const treeTypes = ['tree1', 'tree2'];
+            const treeType = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+            const plantingEventId = `planting-${Date.now()}-${Math.random().toString(36).substr(2, 12)}`;
+            
+            const tree = {
+                id: treeId,
+                x: position.x,
+                y: position.y,
+                type: treeType,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: plantingEventId
+            };
+            
+            const batch = this.db.batch();
+            batch.set(this.db.collection('trees').doc(treeId), tree);
+            batch.set(this.db.collection('feed').doc(plantingEventId), {
+                title: 'Tree Planted',
+                description: 'A beautiful tree has been planted! Nature flourishes in the world.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'planttree',
+                treeId: treeId,
+                eventId: plantingEventId
+            });
+            
+            await batch.commit();
+            console.log('Automated tree planting completed:', treeId);
+            
+        } catch (error) {
+            console.error('Failed to perform automated tree planting:', error);
+        }
+    }
+
+  async performBreeding() {
+    try {
+        // Get all existing throngs
+        const throngsSnapshot = await this.db.collection('throngs').get();
+        const throngs = [];
+        throngsSnapshot.forEach(doc => {
+            throngs.push({ id: doc.id, ...doc.data() });
+        });
+
+        if (throngs.length < 2) {
+            console.log('Not enough throngs for breeding (need at least 2)');
+            
+            // Create feed entry about breeding failure
+            await this.db.collection('feed').add({
+                title: 'Breeding Failed',
+                description: 'You need at least 2 throngs to start breeding!',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'breeding'
+            });
+            return;
+        }
+
+        // Select two random parents
+        const shuffled = throngs.sort(() => 0.5 - Math.random());
+        const parent1 = shuffled[0];
+        const parent2 = shuffled[1];
+
+        const meetingX = (parent1.x + parent2.x) / 2;
+        const meetingY = (parent1.y + parent2.y) / 2;
+        const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+        const sortedParentIds = [parent1.id, parent2.id].sort();
+        const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
+
+        // Generate traits (fallback traits for server-side)
+        const possibleTraits = [
+            'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
+            'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
+        ];
+        const traits = [];
+        for (let i = 0; i < 3; i++) {
+            const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
+            if (!traits.includes(trait)) {
+                traits.push(trait);
+            }
+        }
+
+        // Create breeding action
+        await this.db.collection('actions').add({
+            type: 'breeding',
+            parent1Id: parent1.id,
+            parent2Id: parent2.id,
+            newThrongId: newThrongId,
+            meetingX: meetingX,
+            meetingY: meetingY,
+            parent1StartX: parent1.x,
+            parent1StartY: parent1.y,
+            parent2StartX: parent2.x,
+            parent2StartY: parent2.y,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            eventId: breedingEventId,
+            preGeneratedTraits: traits
+        });
+
+        // Create breeding notification
+        await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
+            title: 'Breeding',
+            description: 'Two Emulites have found love! They are coming together to begin breeding.',
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            action: 'breeding',
+            eventId: breedingEventId
+        });
+
+        // After creating the breeding action, schedule the throng creation server-side
+        setTimeout(async () => {
+            try {
+                console.log('Starting server-side throng creation for:', newThrongId);
+                
+                const worldSize = this.getVirtualWorldSize();
+                const offsetDistance = 60;
+                const angle = Math.random() * 2 * Math.PI;
+                const babyX = meetingX + Math.cos(angle) * offsetDistance;
+                const babyY = meetingY + Math.sin(angle) * offsetDistance;
+                
+                const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
+                const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
+
+                // Create the throng directly using admin SDK
+                const admin = require('firebase-admin');
+                const db = admin.firestore();
+                
+                const newThrong = {
+                    id: newThrongId,
+                    x: finalBabyX,
+                    y: finalBabyY,
+                    currentSprite: 'idle',
+                    direction: 'down',
+                    animationFrame: 0,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    traits: traits
+                };
+
+                // Create throng first
+                await db.collection('throngs').doc(newThrongId).set(newThrong);
+                console.log('Throng created successfully');
+                
+                // Create birth feed entry
+                await db.collection('feed').doc(`birth-${newThrongId}`).set({
+                    title: 'Birth',
+                    description: 'A new Emulite has been born! The group grows with this precious new life.',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'birth',
+                    throngId: newThrongId
+                });
+                console.log('Birth feed entry created successfully');
+                
+                console.log('Server-side throng creation completed successfully:', newThrongId);
+                
+            } catch (error) {
+                console.error('Failed to create throng server-side:', error);
+                console.error('Error details:', error.message);
+            }
+        }, 15000); // Wait 15 seconds for breeding animation to complete
+
+        console.log('Automated breeding initiated:', breedingEventId);
+
+    } catch (error) {
+        console.error('Failed to perform automated breeding:', error);
+    }
+}
+
+    async triggerRainEvent() {
+        try {
+            const startTime = new Date();
+            const endTime = new Date(startTime.getTime() + 180000); // 3 minutes from now
+
+            // Create weather document
+            await this.db.collection('weather').add({
+                type: 'rain',
+                title: 'Thunderstorm!',
+                description: 'Dark clouds gather overhead as a mighty thunderstorm rolls in! Rain pours down across the land, nourishing the earth and bringing life to all creatures.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                startTime: startTime,
+                endTime: endTime,
+                active: true
+            });
+
+            // Also add to main feed
+            await this.db.collection('feed').add({
+                title: 'Thunderstorm!',
+                description: 'Dark clouds gather overhead as a mighty thunderstorm rolls in! Rain pours down across the land.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'weather'
+            });
+
+            console.log('Automated rain event triggered');
+
+        } catch (error) {
+            console.error('Failed to trigger automated rain event:', error);
+        }
+    }
+
+    async triggerTornadoEvent() {
+        try {
+            const startTime = new Date();
+            const endTime = new Date(startTime.getTime() + 180000); // 3 minutes from now
+
+            await this.db.collection('weather').add({
+                type: 'tornado',
+                title: 'Sand Storm Warning!',
+                description: 'A massive sand storm tears across the landscape! Powerful winds whip dust and debris through the air.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                startTime: startTime,
+                endTime: endTime,
+                active: true
+            });
+
+            await this.db.collection('feed').add({
+                title: 'Sand Storm Warning!',
+                description: 'A massive sand storm tears across the landscape! Powerful winds whip dust and debris through the air.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'weather'
+            });
+
+            console.log('Automated sand storm event triggered');
+
+        } catch (error) {
+            console.error('Failed to trigger automated sand storm event:', error);
+        }
+    }
+
+    async triggerSnowEvent() {
+        try {
+            // Check if snow is already active
+            const weatherSnapshot = await this.db.collection('weather').get();
+            let snowAlreadyActive = false;
+            
+            weatherSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.type === 'snow' && data.active) {
+                    snowAlreadyActive = true;
+                }
+            });
+            
+            if (snowAlreadyActive) {
+                console.log('Snow event already active, skipping automated snow');
+                return;
+            }
+
+            const snowEventId = `snow-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const startTime = new Date();
+            const endTime = new Date(startTime.getTime() + 180000);
+
+            // Create weather document
+            await this.db.collection('weather').add({
+                type: 'snow',
+                title: 'Blizzard Alert!',
+                description: 'A fierce blizzard sweeps through the world! Thick snowflakes dance through the air as winter shows its magnificent power.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                startTime: startTime,
+                endTime: endTime,
+                active: true,
+                eventId: snowEventId
+            });
+
+            // Create blizzard feed entry
+            await this.db.collection('feed').doc(`blizzard-${snowEventId}`).set({
+                title: 'Blizzard Alert!',
+                description: 'A fierce blizzard sweeps through the world! Thick snowflakes dance through the air as winter shows its power.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'weather',
+                eventId: snowEventId
+            });
+
+            // Pick a random throng to freeze to death if any exist
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            if (!throngsSnapshot.empty) {
+                const throngs = [];
+                throngsSnapshot.forEach(doc => {
+                    throngs.push({ id: doc.id, ...doc.data() });
+                });
+
+                if (throngs.length > 0) {
+                    const victim = throngs[Math.floor(Math.random() * throngs.length)];
+
+                    // Create freeze action
+                    await this.db.collection('actions').add({
+                        type: 'freeze',
+                        victimId: victim.id,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        eventId: snowEventId
+                    });
+
+                    // Create freeze death feed entry
+                    await this.db.collection('feed').doc(`freeze-death-${snowEventId}`).set({
+                        title: 'FROZEN TO DEATH!',
+                        description: 'The bitter cold claims a victim! An Emulite has frozen solid in the blizzard.',
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        action: 'freeze',
+                        eventId: snowEventId
+                    });
+                }
+            }
+
+            console.log('Automated snow event triggered with freeze death:', snowEventId);
+
+        } catch (error) {
+            console.error('Failed to trigger automated snow event:', error);
+        }
+    }
+}
+
+module.exports = AutomationService;
