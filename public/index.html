@@ -200,51 +200,30 @@
     </style>
 </head>
 <body>
-  <script>
-    // IMMEDIATE NATIVE ALERT BLOCKING - Must be first thing that runs
-    (function() {
-        // Store references to original methods before any other code runs
-        const originalAlert = window.alert;
-        const originalPrompt = window.prompt; 
-        const originalConfirm = window.confirm;
-        
-        // Immediately replace with blocking versions
-        Object.defineProperty(window, 'alert', {
-            value: function(message) {
-                console.log('Blocked alert:', message);
-                return undefined;
-            },
-            writable: false,
-            configurable: false
-        });
-        
-        Object.defineProperty(window, 'prompt', {
-            value: function(message, defaultText) {
-                console.log('Blocked prompt:', message);
-                return null;
-            },
-            writable: false,
-            configurable: false
-        });
-        
-        Object.defineProperty(window, 'confirm', {
-            value: function(message) {
-                console.log('Blocked confirm:', message);
-                return false;
-            },
-            writable: false,
-            configurable: false
-        });
-        
-        // Block eval but don't break other functionality
-        const originalEval = window.eval;
-        window.eval = function() {
-            console.log('eval() blocked for security');
-            return null;
-        };
-        
-        console.log('Native popup blocking active');
-    })();
+ <script>
+    // SIMPLE POPUP BLOCKING - Override without breaking JavaScript engine
+    window.alert = function(message) {
+        console.log('Blocked alert:', message);
+        // Don't show popup, just log and return
+    };
+    
+    window.prompt = function(message, defaultText) {
+        console.log('Blocked prompt:', message);
+        return null;
+    };
+    
+    window.confirm = function(message) {
+        console.log('Blocked confirm:', message);
+        return false;
+    };
+    
+    // Minimal eval blocking
+    window.eval = function() {
+        console.log('eval() blocked');
+        return null;
+    };
+    
+    console.log('Simple popup blocking active');
 </script>
     
     <!-- Loading Screen -->
