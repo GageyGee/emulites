@@ -142,7 +142,7 @@ router.post('/crashUFO', async (req, res) => {
 
 router.post('/death', async (req, res) => {
     try {
-        await global.automationService.performDeath();
+        await global.automationService.performLightningStrike(); // ✅ Correct method
         res.json({ message: 'Lightning strike executed successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to execute lightning strike' });
@@ -151,7 +151,7 @@ router.post('/death', async (req, res) => {
 
 router.post('/fire', async (req, res) => {
     try {
-        await global.automationService.performFire();
+        await global.automationService.performFireStrike(); // ✅ Correct method
         res.json({ message: 'Fire executed successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to execute fire' });
