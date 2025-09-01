@@ -112,8 +112,8 @@ start() {
 scheduleNextAction() {
     if (!this.isRunning) return;
     
-    // Random delay between 1-3 minutes (60000ms - 180000ms)
-    const delay = Math.floor(Math.random() * (180000 - 60000 + 1)) + 60000;
+    // Random delay between 10-30 minutes (600000ms - 1800000ms)
+    const delay = Math.floor(Math.random() * (1800000 - 600000 + 1)) + 600000;
     this.actionDuration = delay;
     this.nextActionTime = Date.now() + delay;
     
