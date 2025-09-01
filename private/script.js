@@ -4610,18 +4610,22 @@ async executeBreedingAnimation(actionData) {
     
     if (!parent1 || !parent2) return;
     
+    // Clear existing behaviors for parents
     clearInterval(parent1.behaviorInterval);
     clearInterval(parent1.animationInterval);
     clearInterval(parent2.behaviorInterval);
     clearInterval(parent2.animationInterval);
     
+    // Walk towards meeting point
     this.walkTowardsTarget(parent1, actionData.meetingX, actionData.meetingY);
     this.walkTowardsTarget(parent2, actionData.meetingX, actionData.meetingY);
     
     setTimeout(() => {
+        // Stop walking
         clearInterval(parent1.walkingInterval);
         clearInterval(parent2.walkingInterval);
         
+        // Position parents at meeting point
         parent1.data.x = actionData.meetingX;
         parent1.data.y = actionData.meetingY;
         parent1.element.style.left = actionData.meetingX + 'px';
@@ -4632,10 +4636,11 @@ async executeBreedingAnimation(actionData) {
         parent2.element.style.left = (actionData.meetingX + 20) + 'px';
         parent2.element.style.top = actionData.meetingY + 'px';
         
+        // Set to idle sprites
         this.setThronsSprite(actionData.parent1Id, 'idle');
         this.setThronsSprite(actionData.parent2Id, 'idle');
         
-        // Start shaking animation and love effects
+        // Start breeding animation
         this.startShakingAnimation(parent1.element);
         this.startShakingAnimation(parent2.element);
         
@@ -4643,11 +4648,12 @@ async executeBreedingAnimation(actionData) {
         parent1.loveEffectCleanup = this.createLoveEffect(parent1);
         parent2.loveEffectCleanup = this.createLoveEffect(parent2);
         
-        setTimeout(async () => {
+        // End breeding animation after 2.5 seconds
+        setTimeout(() => {
+            // Stop shaking and love effects
             this.stopShakingAnimation(parent1.element);
             this.stopShakingAnimation(parent2.element);
             
-            // Clean up love effects
             if (parent1.loveEffectCleanup) {
                 parent1.loveEffectCleanup();
                 parent1.loveEffectCleanup = null;
@@ -4657,65 +4663,20 @@ async executeBreedingAnimation(actionData) {
                 parent2.loveEffectCleanup = null;
             }
             
-            const offsetDistance = 60;
-            const angle = Math.random() * 2 * Math.PI;
-            const babyX = actionData.meetingX + Math.cos(angle) * offsetDistance;
-            const babyY = actionData.meetingY + Math.sin(angle) * offsetDistance;
-            
-            const worldSize = this.getVirtualWorldSize();
-            const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
-            const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
-            
-            // Use pre-generated traits from action data
-            const traits = actionData.preGeneratedTraits || ['Mysterious', 'Curious', 'Brave'];
-
-            // Create the new throng data with pre-generated traits
-            const newThrong = {
-                id: actionData.newThrongId,
-                x: finalBabyX,
-                y: finalBabyY,
-                currentSprite: 'idle',
-                direction: 'down',
-                animationFrame: 0,
-                timestamp: serverTimestamp(),
-                traits: traits
-            };
-            
-            // Mark as new throng BEFORE saving to database
-           /* this.newThrongs.add(actionData.newThrongId);
-
-            try {
-                // Save to Firebase
-                await setDoc(doc(this.db, 'throngs', newThrong.id), newThrong);
-            } catch (error) {
-                console.error('Failed to save new throng to database:', error);
+            // IMPORTANT: The automation service will create the baby throng after 15 seconds
+            // We just need to mark it as new when it appears so it gets birth animation
+            if (actionData.newThrongId) {
+                this.newThrongs.add(actionData.newThrongId);
             }
-
-            // Create feed entry for birth
-            try {
-                await setDoc(doc(this.db, 'feed', `birth-${actionData.newThrongId}`), {
-                    title: 'Birth',
-                    description: 'A new Emulite has been born! The group grows with this precious new life.',
-                    timestamp: serverTimestamp(),
-                    action: 'birth',
-                    throngId: actionData.newThrongId
-                });
-            } catch (error) {
-                console.error('Failed to create birth feed entry:', error);
-            }
-
-            // Update server stats for birth
-            this.onThrongBirth();
             
-            // Update 24h stats immediately
-            this.calculate24hStats(); */
-
-            // Restart AI for parents
-            this.startThronsAI(actionData.parent1Id);
-            this.startThronsAI(actionData.parent2Id);
+            // Restart AI for parents immediately after breeding ends
+            setTimeout(() => {
+                this.startThronsAI(actionData.parent1Id);
+                this.startThronsAI(actionData.parent2Id);
+            }, 500);
             
-        }, 2500);
-    }, 10000);
+        }, 2500); // End breeding animation
+    }, 10000); // Time to walk together
 }
     
 async executeDeathAnimation(actionData) {
