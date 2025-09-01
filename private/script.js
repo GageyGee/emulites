@@ -383,7 +383,7 @@ async loadServerStats() {
         
         if (!statsDoc.exists()) {
             console.log('Server stats document does not exist, using defaults');
-            // Set defaults but don't try to create - let automation service handle that
+            // Set defaults - server will create the document
             this.serverStats.happiness = 50;
             this.serverStats.sentience = 50;
             this.serverStats.mysteries = 0;
@@ -405,30 +405,10 @@ async loadServerStats() {
         this.serverStats.sentience = 50;
         this.serverStats.mysteries = 0;
         
-        // Don't show error notification for read-only users
         console.log('Using default server stats due to read error');
     }
 }
     
-async saveServerStats() {
-    try {
-        const statsDocRef = doc(this.db, 'serverStats', 'global');
-        await setDoc(statsDocRef, {
-            happiness: this.serverStats.happiness,
-            sentience: this.serverStats.sentience, // Make sure this matches
-            mysteries: this.serverStats.mysteries,
-            lastUpdated: serverTimestamp()
-        }, { merge: true });
-        
-        console.log('Server stats saved:', {
-            happiness: this.serverStats.happiness,
-            sentience: this.serverStats.sentience,
-            mysteries: this.serverStats.mysteries
-        });
-    } catch (error) {
-        console.error('Error saving server stats:', error);
-    }
-}
     
 listenToServerStats() {
     onSnapshot(doc(this.db, 'serverStats', 'global'), (doc) => {
@@ -554,83 +534,6 @@ if (this.statsElements.mysteries) {
         });
     }
     
-// Event handlers for stats updates - FIXED VERSIONS
-async onThrongBirth() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness + 2));
-    this.serverStats.sentience = Math.max(0, Math.min(100, this.serverStats.sentience + 1));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
-
-async onThrongDeath() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness - 5));
-    this.serverStats.sentience = Math.max(0, Math.min(100, this.serverStats.sentience - 1));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
-
-async onHouseBuild() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness + 3));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
-
-async onHouseLost() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness - 2));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        mysteries: this.serverStats.mysteries,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
-
-async onTreePlant() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness + 1));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        mysteries: this.serverStats.mysteries,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
-
-async onTreeLost() {
-    this.serverStats.happiness = Math.max(0, Math.min(100, this.serverStats.happiness - 2));
-    
-    await setDoc(doc(this.db, 'serverStats', 'global'), {
-        happiness: this.serverStats.happiness,
-        sentience: this.serverStats.sentience,
-        mysteries: this.serverStats.mysteries,
-        lastUpdated: serverTimestamp()
-    }, { merge: true });
-    
-    this.updateServerStatsUI();
-}
     
     // Notification System
     createNotificationContainer() {
@@ -1429,6 +1332,28 @@ async saveThrongName(throngId, name) {
         }
     }
 }
+
+async performServerSideAction(actionType, actionData = {}) {
+    try {
+        console.log(`Performing server-side action: ${actionType}`);
+        
+        const response = await fetch(`/api/server-action/${actionType}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(actionData)
+        });
+        
+        if (!response.ok) {
+            console.error(`Server action ${actionType} failed:`, await response.text());
+        } else {
+            console.log(`Server action ${actionType} completed successfully`);
+        }
+    } catch (error) {
+        console.error(`Error performing server action ${actionType}:`, error);
+    }
+}
     
 createThrongNameLabel(throng, name) {
     // Remove existing name label if any
@@ -2167,8 +2092,6 @@ listenToFirepits() {
         
         console.log('Building completed with event ID:', buildingEventId);
         
-        // Update server stats for house build
-        this.onHouseBuild();
         
         // Update 24h stats immediately
         this.calculate24hStats();
@@ -2219,8 +2142,6 @@ listenToFirepits() {
         
         console.log('Tree planting completed with event ID:', plantingEventId);
         
-        // Update server stats for tree plant
-        this.onTreePlant();
         
         // Update 24h stats immediately
         this.calculate24hStats();
@@ -3398,9 +3319,7 @@ async performApartmentBuilding() {
         ]);
         
         console.log('Apartment building completed with event ID:', buildingEventId);
-        
-        // Update server stats for apartment build (same as house)
-        this.onHouseBuild();
+
         
         // Update 24h stats immediately
         this.calculate24hStats();
@@ -4712,7 +4631,7 @@ async executeDeathAnimation(actionData) {
             setTimeout(async () => {
                 await deleteDoc(doc(this.db, 'throngs', actionData.victimId));
                 // Update server stats for death
-                this.onThrongDeath();
+               
                 
                 // Create the follow-up death feed entry (like "Death by Freezing" in freeze system)
                await setDoc(doc(this.db, 'feed', `death-by-lightning-${actionData.victimId}`), {
@@ -4781,8 +4700,7 @@ async executeFireDeathAnimation(actionData) {
             
             setTimeout(async () => {
                 await deleteDoc(doc(this.db, 'throngs', actionData.victimId));
-                // Update server stats for death
-                this.onThrongDeath();
+// Server handles stats updates automatically
                 
                 // Create the follow-up death feed entry (like "Death by Freezing" in freeze system)
                 await setDoc(doc(this.db, 'feed', `death-by-fire-${actionData.victimId}`), {
@@ -5492,8 +5410,7 @@ createScreenShake() {
             // Delete from database
             setTimeout(async () => {
                 await deleteDoc(doc(this.db, 'throngs', actionData.victimId));
-                // Update server stats for death
-                this.onThrongDeath();
+// Server handles stats updates automatically
                 
 // Create feed entry for freeze death (for 24h stats) - use unique ID to prevent duplicates
 await setDoc(doc(this.db, 'feed', `throng-freeze-death-${actionData.victimId}`), {
@@ -5532,8 +5449,6 @@ this.calculate24hStats();
                 await deleteDoc(doc(this.db, 'houses', actionData.houseId));
                 console.log('House successfully deleted from database:', actionData.houseId);
                 
-                // Update server stats for house loss
-                this.onHouseLost();
                 
                 
              // Create feed entry for house destruction (for 24h stats) - use unique ID to prevent duplicates
@@ -5579,8 +5494,7 @@ this.calculate24hStats();
                 await deleteDoc(doc(this.db, 'trees', actionData.treeId));
                 console.log('Tree successfully deleted from database:', actionData.treeId);
                 
-                // Update server stats for tree loss
-                this.onTreeLost();
+
                 
                 // Create feed entry for tree destruction (for 24h stats) - use unique ID to prevent duplicates
 await setDoc(doc(this.db, 'feed', `tree-destroyed-${actionData.treeId}`), {
@@ -5627,8 +5541,6 @@ this.calculate24hStats();
             await deleteDoc(doc(this.db, 'apartments', actionData.apartmentId));
             console.log('Apartment successfully deleted from database:', actionData.apartmentId);
             
-            // Update server stats for apartment loss (same as house)
-            this.onHouseLost();
             
             // Create feed entry for apartment destruction
             await setDoc(doc(this.db, 'feed', `apartment-destroyed-${actionData.apartmentId}`), {
