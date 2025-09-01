@@ -672,75 +672,71 @@ scheduleNextAction() {
         }
     }
 
-   async performBreeding() {
-    try {
-        // Get all existing throngs
-        const throngsSnapshot = await this.db.collection('throngs').get();
-        const throngs = [];
-        throngsSnapshot.forEach(doc => {
-            throngs.push({ id: doc.id, ...doc.data() });
-        });
-
-        if (throngs.length < 2) {
-            console.log('Not enough throngs for breeding (need at least 2)');
-            
-            await this.db.collection('feed').add({
-                title: 'Breeding Failed',
-                description: 'You need at least 2 throngs to start breeding!',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                action: 'breeding'
+    async performBreeding() {
+        try {
+            console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
+            // Get all existing throngs
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            const throngs = [];
+            throngsSnapshot.forEach(doc => {
+                throngs.push({ id: doc.id, ...doc.data() });
             });
-            return;
-        }
 
-        // Select two random parents
-        const shuffled = throngs.sort(() => 0.5 - Math.random());
-        const parent1 = shuffled[0];
-        const parent2 = shuffled[1];
-
-        // FIXED: Generate random meeting location instead of using parent average
-        const worldSize = this.getVirtualWorldSize();
-        const buffer = 100; // Keep meeting point away from edges
-        
-        const meetingX = buffer + Math.random() * (worldSize.width - buffer * 2);
-        const meetingY = buffer + Math.random() * (worldSize.height - buffer * 2);
-        
-        console.log(`Breeding meeting point: (${Math.round(meetingX)}, ${Math.round(meetingY)})`);
-        
-        const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-        const sortedParentIds = [parent1.id, parent2.id].sort();
-        const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
-
-        // Generate traits (fallback traits for server-side)
-        const possibleTraits = [
-            'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
-            'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
-        ];
-        const traits = [];
-        for (let i = 0; i < 3; i++) {
-            const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
-            if (!traits.includes(trait)) {
-                traits.push(trait);
+            if (throngs.length < 2) {
+                console.log('Not enough throngs for breeding (need at least 2)');
+                
+                // Create feed entry about breeding failure
+                await this.db.collection('feed').add({
+                    title: 'Breeding Failed',
+                    description: 'You need at least 2 throngs to start breeding!',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'breeding'
+                });
+                return;
             }
-        }
 
-        // Create breeding action
-        await this.db.collection('actions').add({
-            type: 'breeding',
-            parent1Id: parent1.id,
-            parent2Id: parent2.id,
-            newThrongId: newThrongId,
-            meetingX: meetingX,  // Now truly random
-            meetingY: meetingY,  // Now truly random
-            parent1StartX: parent1.x,
-            parent1StartY: parent1.y,
-            parent2StartX: parent2.x,
-            parent2StartY: parent2.y,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            eventId: breedingEventId,
-            preGeneratedTraits: traits
-        });
+            // Select two random parents
+            const shuffled = throngs.sort(() => 0.5 - Math.random());
+            const parent1 = shuffled[0];
+            const parent2 = shuffled[1];
+
+            const meetingX = (parent1.x + parent2.x) / 2;
+            const meetingY = (parent1.y + parent2.y) / 2;
+            const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            const sortedParentIds = [parent1.id, parent2.id].sort();
+            const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
+
+            // Generate traits (fallback traits for server-side)
+            const possibleTraits = [
+                'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
+                'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
+            ];
+            const traits = [];
+            for (let i = 0; i < 3; i++) {
+                const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
+                if (!traits.includes(trait)) {
+                    traits.push(trait);
+                }
+            }
+
+            // Create breeding action
+            await this.db.collection('actions').add({
+                type: 'breeding',
+                parent1Id: parent1.id,
+                parent2Id: parent2.id,
+                newThrongId: newThrongId,
+                meetingX: meetingX,
+                meetingY: meetingY,
+                parent1StartX: parent1.x,
+                parent1StartY: parent1.y,
+                parent2StartX: parent2.x,
+                parent2StartY: parent2.y,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: breedingEventId,
+                preGeneratedTraits: traits
+            });
+
             // Create breeding notification
             await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
                 title: 'Breeding',
