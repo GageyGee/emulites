@@ -4575,6 +4575,12 @@ listenToActions() {
                         deleteDoc(doc(this.db, 'actions', actionId));
                         this.processedActions.delete(actionId);
                     }, 13000);
+                    } else if (actionData.type === 'burnapartment') {
+    this.executeBurnApartmentAnimation(actionData);
+    setTimeout(() => {
+        deleteDoc(doc(this.db, 'actions', actionId));
+        this.processedActions.delete(actionId);
+    }, 13000);
                 } else if (actionData.type === 'burntree') {
                     this.executeBurnTreeAnimation(actionData);
                     setTimeout(() => {
@@ -5599,6 +5605,55 @@ this.calculate24hStats();
         }, 11000);
     }
 
+    async executeBurnApartmentAnimation(actionData) {
+    const apartment = this.apartments.get(actionData.apartmentId);
+    if (!apartment) return;
+    
+    const stopFire = this.createApartmentFireEffect(apartment);
+    
+    // After 10 seconds, start the collapse animation
+    setTimeout(() => {
+        const apartmentImg = apartment.element.querySelector('img');
+        if (apartmentImg) {
+            apartmentImg.style.animation = 'collapseApartmentTopDown 2s ease-in forwards';
+        }
+        
+        this.createApartmentDestructionEffect(apartment.data.x, apartment.data.y);
+    }, 10000);
+    
+    // After 12 seconds, delete from database
+    setTimeout(async () => {
+        try {
+            await deleteDoc(doc(this.db, 'apartments', actionData.apartmentId));
+            console.log('Apartment successfully deleted from database:', actionData.apartmentId);
+            
+            // Update server stats for apartment loss (same as house)
+            this.onHouseLost();
+            
+            // Create feed entry for apartment destruction
+            await setDoc(doc(this.db, 'feed', `apartment-destroyed-${actionData.apartmentId}`), {
+                title: 'Apartment Destroyed', 
+                description: 'An apartment building has been consumed by flames and destroyed.',
+                timestamp: serverTimestamp(),
+                action: 'houselost',
+                apartmentId: actionData.apartmentId
+            });
+
+            // Update 24h stats immediately
+            this.calculate24hStats();
+            
+        } catch (error) {
+            console.error('Failed to delete apartment from database:', error);
+            this.showNotification('error', 'Deletion Failed', 'Failed to remove apartment from database.', 5000);
+        }
+    }, 12000);
+    
+    // After 13 seconds, stop fire
+    setTimeout(() => {
+        stopFire();
+    }, 13000);
+}
+
     // Effect creation methods
     createLightningEffect(x, y) {
         const lightningSprite = this.effectSprites.lightning;
@@ -6024,6 +6079,122 @@ this.calculate24hStats();
             }, 1350);
         }
     }
+
+    createApartmentFireEffect(apartment) {
+    const fireColors = ['#ff4500', '#ff6600', '#ff8800', '#ffaa00', '#ffcc00', '#ff0000', '#cc0000'];
+    const apartmentImg = apartment.element.querySelector('img');
+    const apartmentWidth = apartmentImg ? apartmentImg.offsetWidth : 156;
+    const apartmentHeight = apartmentImg ? apartmentImg.offsetHeight : 213;
+    
+    const fireContainer = document.createElement('div');
+    fireContainer.style.position = 'absolute';
+    fireContainer.style.width = apartmentWidth + 'px';
+    fireContainer.style.height = apartmentHeight + 'px';
+    fireContainer.style.left = apartment.data.x + 'px';
+    fireContainer.style.top = apartment.data.y + 'px';
+    fireContainer.style.pointerEvents = 'none';
+    fireContainer.style.zIndex = '997';
+    
+    const numFirePixels = 70; // More particles for larger building
+    const firePixels = [];
+    
+    for (let i = 0; i < numFirePixels; i++) {
+        const pixel = document.createElement('div');
+        pixel.style.position = 'absolute';
+        pixel.style.width = '8px';
+        pixel.style.height = '8px';
+        pixel.style.backgroundColor = fireColors[Math.floor(Math.random() * fireColors.length)];
+        
+        const pixelX = Math.random() * apartmentWidth;
+        const pixelY = apartmentHeight * 0.3 + Math.random() * (apartmentHeight * 0.7);
+        
+        pixel.style.left = pixelX + 'px';
+        pixel.style.top = pixelY + 'px';
+        pixel.style.borderRadius = '2px';
+        pixel.style.opacity = '0.8';
+        
+        fireContainer.appendChild(pixel);
+        firePixels.push({
+            element: pixel,
+            originalY: pixelY,
+            speed: 2 + Math.random() * 6
+        });
+    }
+    
+    this.worldContainer.appendChild(fireContainer);
+    
+    let animationFrame = 0;
+    const fireAnimation = setInterval(() => {
+        firePixels.forEach((firePixel) => {
+            const currentY = parseFloat(firePixel.element.style.top);
+            const newY = currentY - firePixel.speed;
+            
+            if (newY < 0) {
+                firePixel.element.style.top = (firePixel.originalY + 20) + 'px';
+                firePixel.element.style.backgroundColor = fireColors[Math.floor(Math.random() * fireColors.length)];
+            } else {
+                firePixel.element.style.top = newY + 'px';
+            }
+            
+            if (animationFrame % 2 === 0) {
+                firePixel.element.style.backgroundColor = fireColors[Math.floor(Math.random() * fireColors.length)];
+                firePixel.element.style.opacity = (0.6 + Math.random() * 0.4);
+            }
+        });
+        
+        animationFrame++;
+    }, 50);
+    
+    return () => {
+        clearInterval(fireAnimation);
+        fireContainer.remove();
+    };
+}
+
+createApartmentDestructionEffect(x, y) {
+    const colors = ['#8B4513', '#A0522D', '#CD853F', '#D2691E', '#DEB887', '#F4A460', '#D2B48C'];
+    const apartmentWidth = 156;
+    const apartmentHeight = 213;
+    const numParticles = 50; // More particles for larger building
+    
+    for (let i = 0; i < numParticles; i++) {
+        const particle = document.createElement('div');
+        
+        const particleX = x + Math.random() * apartmentWidth;
+        const particleY = y + Math.random() * apartmentHeight;
+        
+        particle.style.position = 'absolute';
+        particle.style.left = particleX + 'px';
+        particle.style.top = particleY + 'px';
+        particle.style.width = (6 + Math.random() * 8) + 'px';
+        particle.style.height = (6 + Math.random() * 8) + 'px';
+        particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.pointerEvents = 'none';
+        particle.style.zIndex = '998';
+        particle.style.borderRadius = Math.random() > 0.7 ? '50%' : '2px';
+        
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = 60 + Math.random() * 60;
+        const endX = Math.cos(angle) * distance;
+        const endY = Math.sin(angle) * distance + Math.random() * 25;
+        
+        particle.style.transform = 'translate(0, 0) scale(1) rotate(0deg)';
+        particle.style.opacity = '1';
+        particle.style.transition = 'all 1.4s ease-out';
+        
+        this.worldContainer.appendChild(particle);
+        
+        setTimeout(() => {
+            const rotation = Math.random() * 360;
+            particle.style.transform = 'translate(' + endX + 'px, ' + endY + 'px) scale(0) rotate(' + rotation + 'deg)';
+            particle.style.opacity = '0';
+        }, 50 + Math.random() * 200);
+        
+        setTimeout(() => {
+            particle.remove();
+        }, 1450);
+    }
+}
 
     createLoveEffect(throng) {
         const loveSprite = this.effectSprites.love;
