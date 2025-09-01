@@ -862,6 +862,37 @@ async connectWallet() {
         }
     }
 }
+
+// ADD THIS NEW METHOD RIGHT AFTER connectWallet():
+async authenticateAsAdmin() {
+    try {
+        // Get admin token from server
+        const response = await fetch('/api/auth/admin-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                walletAddress: this.wallet.toString()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Sign in with the custom token
+        const { signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+        await signInWithCustomToken(window.auth, data.customToken);
+        
+        console.log('Successfully authenticated as admin with Firebase');
+    } catch (error) {
+        console.error('Failed to authenticate as admin:', error);
+        this.showNotification('error', 'Admin Auth Failed', 'Failed to authenticate as admin.', 5000);
+    }
+}
     
 async disconnectWallet() {
     try {
