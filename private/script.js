@@ -1115,7 +1115,7 @@ updateActionButtons() {
             }
             return false;
         }
-    },
+    }
 
 async executeAdminAction(action) {
     if (!this.wallet) {
@@ -1163,7 +1163,7 @@ async executeAdminAction(action) {
             this.showNotification('error', 'Error', 'Network error occurred', 5000);
         }
     }
-},
+}
         
   setupActionDropdown() {
     // Name Throng button - always visible when wallet connected, costs tokens
