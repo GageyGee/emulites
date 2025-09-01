@@ -4112,10 +4112,11 @@ async performBreeding() {
     const sortedParentIds = [parent1Id, parent2Id].sort();
     const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
     
-    // Generate traits for the new throng
+    // Generate traits for the new throng using Claude API
     let traits = ['Mysterious', 'Curious', 'Brave']; // Default fallback traits
     
     try {
+        console.log('Client-side: Calling Claude API for trait generation...');
         const traitsResponse = await fetch('/api/claude/generate-traits', {
             method: 'POST',
             headers: {
@@ -4125,11 +4126,17 @@ async performBreeding() {
         
         if (traitsResponse.ok) {
             const traitsData = await traitsResponse.json();
-            if (traitsData.traits && Array.isArray(traitsData.traits) && traitsData.traits.length > 0) {
+            if (traitsData.traits && Array.isArray(traitsData.traits) && traitsData.traits.length === 3) {
                 traits = traitsData.traits;
+                console.log('Client-side: Successfully generated AI traits:', traits);
+            } else {
+                console.log('Client-side: Invalid API response, using fallback traits');
             }
+        } else {
+            console.log('Client-side: API call failed, using fallback traits');
         }
     } catch (error) {
+        console.error('Client-side: Failed to generate traits:', error);
         // Use fallback traits on error
     }
     
@@ -4615,6 +4622,10 @@ async executeBreedingAnimation(actionData) {
     
     if (!parent1 || !parent2) return;
     
+    // Use the pre-generated traits from the action data
+    const traits = actionData.preGeneratedTraits || ['Mysterious', 'Curious', 'Brave'];
+    console.log('Using traits from action data:', traits);
+    
     // Clear existing behaviors for parents
     clearInterval(parent1.behaviorInterval);
     clearInterval(parent1.animationInterval);
@@ -4668,8 +4679,7 @@ async executeBreedingAnimation(actionData) {
                 parent2.loveEffectCleanup = null;
             }
             
-            // IMPORTANT: The automation service will create the baby throng after 15 seconds
-            // We just need to mark it as new when it appears so it gets birth animation
+            // Mark the new throng for birth animation
             if (actionData.newThrongId) {
                 this.newThrongs.add(actionData.newThrongId);
             }
