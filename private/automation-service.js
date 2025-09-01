@@ -2,84 +2,97 @@ const admin = require('firebase-admin');
 
 class AutomationService {
     constructor() {
-    // Firebase Admin should already be initialized in server.js
-    if (!admin.apps.length) {
-        throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
-    }
-
-    // UPDATED: Add lightning and fire actions to the array
-    this.actions = [
-        { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
-        { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
-        { name: 'plantTree', weight: 50, method: this.performPlantTree.bind(this) },
-        { name: 'buildFirepit', weight: 20, method: this.performBuildFirepit.bind(this) },
-        { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
-        { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
-        { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
-        { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) },
-        { name: 'lightning', weight: 0, method: this.performLightningStrike.bind(this) },
-        { name: 'fire', weight: 0, method: this.performFireStrike.bind(this) }
-    ];
-
-    this.db = admin.firestore();
-    this.auth = admin.auth();
-    this.isRunning = false;
-    this.currentTimeout = null;
-    this.nextActionTime = null;
-    this.actionDuration = 0;
-
-    // Remove complex authentication - Firebase Admin SDK works directly
-    console.log('AutomationService initialized with Firebase Admin SDK');
-    
-    // Initialize server stats
-    this.initializeServerStats();
-}
-
-    async initializeAuth() {
-        try {
-            // Create a custom token for the automation service with admin claims
-            this.customToken = await this.auth.createCustomToken('automation-service', {
-                admin: true,
-                service: 'automation'
-            });
-            
-            console.log('Automation service authenticated with admin privileges');
-        } catch (error) {
-            console.error('Failed to create automation service token:', error);
+        // Firebase Admin should already be initialized in server.js
+        if (!admin.apps.length) {
+            throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
         }
+
+        // UPDATED: Add lightning and fire actions to the array
+        this.actions = [
+            { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
+            { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
+            { name: 'plantTree', weight: 50, method: this.performPlantTree.bind(this) },
+            { name: 'buildFirepit', weight: 20, method: this.performBuildFirepit.bind(this) },
+            { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
+            { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
+            { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
+            { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) },
+            { name: 'lightning', weight: 0, method: this.performLightningStrike.bind(this) },
+            { name: 'fire', weight: 0, method: this.performFireStrike.bind(this) }
+        ];
+
+        this.db = admin.firestore();
+        this.auth = admin.auth();
+        this.isRunning = false;
+        this.currentTimeout = null;
+        this.nextActionTime = null;
+        this.actionDuration = 0;
+
+        console.log('AutomationService initialized with Firebase Admin SDK');
+        
+        // Initialize server stats
+        this.initializeServerStats();
     }
 
     async initializeServerStats() {
-    try {
-        const statsDocRef = this.db.collection('serverStats').doc('global');
-        const statsDoc = await statsDocRef.get();
-        
-        if (!statsDoc.exists) {
-            console.log('Creating initial server stats document...');
-            await statsDocRef.set({
-                happiness: 50,
-                sentience: 50,
-                mysteries: 0,
-                created: admin.firestore.FieldValue.serverTimestamp(),
-                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-            });
-            console.log('Initial server stats created');
+        try {
+            const statsDocRef = this.db.collection('serverStats').doc('global');
+            const statsDoc = await statsDocRef.get();
+            
+            if (!statsDoc.exists) {
+                console.log('Creating initial server stats document...');
+                await statsDocRef.set({
+                    happiness: 50,
+                    sentience: 50,
+                    mysteries: 0,
+                    created: admin.firestore.FieldValue.serverTimestamp(),
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('Initial server stats created');
+            }
+        } catch (error) {
+            console.error('Error initializing server stats:', error);
         }
-    } catch (error) {
-        console.error('Error initializing server stats:', error);
-    }
-}
-
-start() {
-    if (this.isRunning) {
-        console.log('Automation service already running');
-        return;
     }
 
-    this.isRunning = true;
-    console.log('Starting automation service...');
-    this.scheduleNextAction();
-}
+    // SERVER-SIDE STATS UPDATE METHODS
+    async updateHappiness(change) {
+        try {
+            const statsDocRef = this.db.collection('serverStats').doc('global');
+            await this.db.runTransaction(async (transaction) => {
+                const statsDoc = await transaction.get(statsDocRef);
+                const currentHappiness = statsDoc.exists ? (statsDoc.data().happiness || 50) : 50;
+                const newHappiness = Math.max(0, Math.min(100, currentHappiness + change));
+                
+                transaction.update(statsDocRef, {
+                    happiness: newHappiness,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            console.log(`Updated happiness by ${change}`);
+        } catch (error) {
+            console.error('Error updating happiness:', error);
+        }
+    }
+
+    async updateSentience(change) {
+        try {
+            const statsDocRef = this.db.collection('serverStats').doc('global');
+            await this.db.runTransaction(async (transaction) => {
+                const statsDoc = await transaction.get(statsDocRef);
+                const currentSentience = statsDoc.exists ? (statsDoc.data().sentience || 50) : 50;
+                const newSentience = Math.max(0, Math.min(100, currentSentience + change));
+                
+                transaction.update(statsDocRef, {
+                    sentience: newSentience,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            console.log(`Updated sentience by ${change}`);
+        } catch (error) {
+            console.error('Error updating sentience:', error);
+        }
+    }
 
     start() {
         if (this.isRunning) {
@@ -111,21 +124,21 @@ start() {
         return this.actionDuration;
     }
 
-scheduleNextAction() {
-    if (!this.isRunning) return;
-    
-    // Random delay between 10-30 minutes (600000ms - 1800000ms)
-    const delay = Math.floor(Math.random() * (1800000 - 600000 + 1)) + 600000;
-    this.actionDuration = delay;
-    this.nextActionTime = Date.now() + delay;
-    
-    const minutes = Math.round(delay / 60000 * 10) / 10;
-    console.log(`Next automated action scheduled in ${minutes} minutes`);
-    this.currentTimeout = setTimeout(() => {
-        this.executeRandomAction();
-        this.scheduleNextAction(); // Schedule the next one
-    }, delay);
-}
+    scheduleNextAction() {
+        if (!this.isRunning) return;
+        
+        // Random delay between 10-30 minutes (600000ms - 1800000ms)
+        const delay = Math.floor(Math.random() * (1800000 - 600000 + 1)) + 600000;
+        this.actionDuration = delay;
+        this.nextActionTime = Date.now() + delay;
+        
+        const minutes = Math.round(delay / 60000 * 10) / 10;
+        console.log(`Next automated action scheduled in ${minutes} minutes`);
+        this.currentTimeout = setTimeout(() => {
+            this.executeRandomAction();
+            this.scheduleNextAction(); // Schedule the next one
+        }, delay);
+    }
 
     executeRandomAction() {
         const selectedAction = this.selectWeightedAction();
@@ -388,7 +401,7 @@ scheduleNextAction() {
         };
     }
 
-    // Action implementations
+    // Action implementations with server-side stats updates
     async performBuilding() {
         try {
             const position = await this.findValidHousePosition();
@@ -419,6 +432,10 @@ scheduleNextAction() {
             });
             
             await batch.commit();
+            
+            // Update happiness +1 for house built
+            await this.updateHappiness(1);
+            
             console.log('Automated house building completed:', houseId);
             
         } catch (error) {
@@ -454,6 +471,10 @@ scheduleNextAction() {
             });
             
             await batch.commit();
+            
+            // Update happiness +2 for apartment built
+            await this.updateHappiness(2);
+            
             console.log('Automated apartment building completed:', apartmentId);
             
         } catch (error) {
@@ -491,6 +512,9 @@ scheduleNextAction() {
             });
             
             await batch.commit();
+            
+            // Firepits don't affect happiness in your spec, so no stats update needed
+            
             console.log('Automated firepit building completed:', firepitId);
             
         } catch (error) {
@@ -527,6 +551,10 @@ scheduleNextAction() {
             });
             
             await batch.commit();
+            
+            // Update happiness +1 for tree planted
+            await this.updateHappiness(1);
+            
             console.log('Automated tree planting completed:', treeId);
             
         } catch (error) {
@@ -569,6 +597,9 @@ scheduleNextAction() {
             });
             
             await batch.commit();
+            
+            // Bones don't affect happiness or sentience in your spec
+            
             console.log('Automated bone discovery completed:', boneId);
             
         } catch (error) {
@@ -617,6 +648,8 @@ scheduleNextAction() {
                 eventId: eggEventId,
                 eggId: eggId
             });
+            
+            // Eggs don't affect happiness or sentience in your spec
             
             console.log('Automated egg drop triggered with event ID:', eggEventId);
             
@@ -667,6 +700,8 @@ scheduleNextAction() {
                 ufoId: ufoId
             });
             
+            // UFOs don't affect happiness or sentience in your spec
+            
             console.log('Automated UFO crash triggered with event ID:', ufoEventId);
             
         } catch (error) {
@@ -674,200 +709,204 @@ scheduleNextAction() {
         }
     }
 
-async performBreeding() {
-    try {
-        console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
-        // Get all existing throngs
-        const throngsSnapshot = await this.db.collection('throngs').get();
-        const throngs = [];
-        throngsSnapshot.forEach(doc => {
-            throngs.push({ id: doc.id, ...doc.data() });
-        });
-
-        if (throngs.length < 2) {
-            console.log('Not enough throngs for breeding (need at least 2)');
-            
-            // Create feed entry about breeding failure
-            await this.db.collection('feed').add({
-                title: 'Breeding Failed',
-                description: 'You need at least 2 throngs to start breeding!',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                action: 'breeding'
-            });
-            return;
-        }
-
-        // Select two random parents
-        const shuffled = throngs.sort(() => 0.5 - Math.random());
-        const parent1 = shuffled[0];
-        const parent2 = shuffled[1];
-
-        // Generate completely random meeting point anywhere on the map
-        const worldSize = this.getVirtualWorldSize();
-        const edgeBuffer = 100; // Keep away from edges
-        
-        const meetingX = edgeBuffer + Math.random() * (worldSize.width - edgeBuffer * 2);
-        const meetingY = edgeBuffer + Math.random() * (worldSize.height - edgeBuffer * 2);
-
-        const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-        const sortedParentIds = [parent1.id, parent2.id].sort();
-        const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
-
-// Generate AI traits server-side using Claude API
-let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
-
-try {
-    console.log('=== AUTOMATION SERVICE TRAIT GENERATION ===');
-    console.log('Attempting to call Claude API directly...');
-    
-    // Get the Claude API key from environment
-    const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-    
-    if (!CLAUDE_API_KEY) {
-        console.log('❌ Claude API key not configured, using fallback traits');
-        throw new Error('Claude API key not configured');
-    }
-    
-    console.log('✅ Claude API key is configured');
-    
-    // Call Claude API directly instead of going through our own endpoint
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': CLAUDE_API_KEY,
-            'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-            model: 'claude-3-haiku-20240307',
-            max_tokens: 100,
-            messages: [{
-                role: 'user',
-                content: 'Generate exactly 3 unique personality traits for a digital creature called an Emulite. Choose from traits like: Curious, Loyal, Witty, Creative, Humble, Energetic, Wise, Clever as examples, but dont just take from this list, create them on your own. Respond only with a JSON object in this exact format: {"traits": ["trait1", "trait2", "trait3"]}'
-            }]
-        })
-    });
-    
-    console.log('Claude API response status:', response.status);
-    console.log('Response ok:', response.ok);
-    
-    if (response.ok) {
-        const data = await response.json();
-        console.log('Claude API response data:', JSON.stringify(data, null, 2));
-        
-        const responseText = data.content[0].text.trim();
-        console.log('Claude response text:', responseText);
-        
+    async performBreeding() {
         try {
-            const parsed = JSON.parse(responseText);
-            if (parsed.traits && Array.isArray(parsed.traits) && parsed.traits.length === 3) {
-                traits = parsed.traits;
-                console.log('✅ Successfully generated AI traits:', traits);
-            } else {
-                console.log('❌ Invalid traits format, using fallback traits');
-                console.log('Expected: {traits: [string, string, string]}');
-                console.log('Received:', parsed);
-            }
-        } catch (parseError) {
-            console.error('❌ Failed to parse Claude response as JSON:', parseError);
-            console.error('Raw response text was:', responseText);
-        }
-    } else {
-        const errorText = await response.text();
-        console.log('❌ Claude API call failed with status:', response.status);
-        console.log('Error response:', errorText);
-    }
-} catch (error) {
-    console.error('❌ Exception calling Claude API:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    if (error.code) console.error('Error code:', error.code);
-}
+            console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
+            // Get all existing throngs
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            const throngs = [];
+            throngsSnapshot.forEach(doc => {
+                throngs.push({ id: doc.id, ...doc.data() });
+            });
 
-console.log('Final traits being used:', traits);
-console.log('=== END TRAIT GENERATION DEBUG ===');
-
-        // Create breeding action
-        await this.db.collection('actions').add({
-            type: 'breeding',
-            parent1Id: parent1.id,
-            parent2Id: parent2.id,
-            newThrongId: newThrongId,
-            meetingX: meetingX,
-            meetingY: meetingY,
-            parent1StartX: parent1.x,
-            parent1StartY: parent1.y,
-            parent2StartX: parent2.x,
-            parent2StartY: parent2.y,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            eventId: breedingEventId,
-            preGeneratedTraits: traits // Pass the generated traits
-        });
-
-        // Create breeding notification
-        await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
-            title: 'Breeding',
-            description: 'Two Emulites have found love! They are coming together to begin breeding.',
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            action: 'breeding',
-            eventId: breedingEventId
-        });
-
-        // After creating the breeding action, schedule the throng creation server-side
-        setTimeout(async () => {
-            try {
-                console.log('Starting server-side throng creation for:', newThrongId);
-                console.log('Using traits:', traits);
+            if (throngs.length < 2) {
+                console.log('Not enough throngs for breeding (need at least 2)');
                 
-                const worldSize = this.getVirtualWorldSize();
-                const offsetDistance = 60;
-                const angle = Math.random() * 2 * Math.PI;
-                const babyX = meetingX + Math.cos(angle) * offsetDistance;
-                const babyY = meetingY + Math.sin(angle) * offsetDistance;
-                
-                const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
-                const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
-
-                const newThrong = {
-                    id: newThrongId,
-                    x: finalBabyX,
-                    y: finalBabyY,
-                    currentSprite: 'idle',
-                    direction: 'down',
-                    animationFrame: 0,
+                // Create feed entry about breeding failure
+                await this.db.collection('feed').add({
+                    title: 'Breeding Failed',
+                    description: 'You need at least 2 throngs to start breeding!',
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    traits: traits // Use the AI-generated traits
-                };
-
-                // Create throng first
-                await this.db.collection('throngs').doc(newThrongId).set(newThrong);
-                console.log('Throng created successfully with traits:', traits);
-                
-                // Create birth feed entry
-                await this.db.collection('feed').doc(`birth-${newThrongId}`).set({
-                    title: 'Birth',
-                    description: 'A new Emulite has been born! The group grows with this precious new life.',
-                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    action: 'birth',
-                    throngId: newThrongId
+                    action: 'breeding'
                 });
-                console.log('Birth feed entry created successfully');
-                
-                console.log('Server-side throng creation completed successfully:', newThrongId);
-                
-            } catch (error) {
-                console.error('Failed to create throng server-side:', error);
-                console.error('Error details:', error.message);
+                return;
             }
-        }, 15000); // Wait 15 seconds for breeding animation to complete
 
-        console.log('Automated breeding initiated:', breedingEventId);
+            // Select two random parents
+            const shuffled = throngs.sort(() => 0.5 - Math.random());
+            const parent1 = shuffled[0];
+            const parent2 = shuffled[1];
 
-    } catch (error) {
-        console.error('Failed to perform automated breeding:', error);
+            // Generate completely random meeting point anywhere on the map
+            const worldSize = this.getVirtualWorldSize();
+            const edgeBuffer = 100; // Keep away from edges
+            
+            const meetingX = edgeBuffer + Math.random() * (worldSize.width - edgeBuffer * 2);
+            const meetingY = edgeBuffer + Math.random() * (worldSize.height - edgeBuffer * 2);
+
+            const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            const sortedParentIds = [parent1.id, parent2.id].sort();
+            const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
+
+            // Generate AI traits server-side using Claude API
+            let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
+
+            try {
+                console.log('=== AUTOMATION SERVICE TRAIT GENERATION ===');
+                console.log('Attempting to call Claude API directly...');
+                
+                // Get the Claude API key from environment
+                const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+                
+                if (!CLAUDE_API_KEY) {
+                    console.log('❌ Claude API key not configured, using fallback traits');
+                    throw new Error('Claude API key not configured');
+                }
+                
+                console.log('✅ Claude API key is configured');
+                
+                // Call Claude API directly instead of going through our own endpoint
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CLAUDE_API_KEY,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-3-haiku-20240307',
+                        max_tokens: 100,
+                        messages: [{
+                            role: 'user',
+                            content: 'Generate exactly 3 unique personality traits for a digital creature called an Emulite. Choose from traits like: Curious, Loyal, Witty, Creative, Humble, Energetic, Wise, Clever as examples, but dont just take from this list, create them on your own. Respond only with a JSON object in this exact format: {"traits": ["trait1", "trait2", "trait3"]}'
+                        }]
+                    })
+                });
+                
+                console.log('Claude API response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Claude API response data:', JSON.stringify(data, null, 2));
+                    
+                    const responseText = data.content[0].text.trim();
+                    console.log('Claude response text:', responseText);
+                    
+                    try {
+                        const parsed = JSON.parse(responseText);
+                        if (parsed.traits && Array.isArray(parsed.traits) && parsed.traits.length === 3) {
+                            traits = parsed.traits;
+                            console.log('✅ Successfully generated AI traits:', traits);
+                        } else {
+                            console.log('❌ Invalid traits format, using fallback traits');
+                            console.log('Expected: {traits: [string, string, string]}');
+                            console.log('Received:', parsed);
+                        }
+                    } catch (parseError) {
+                        console.error('❌ Failed to parse Claude response as JSON:', parseError);
+                        console.error('Raw response text was:', responseText);
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.log('❌ Claude API call failed with status:', response.status);
+                    console.log('Error response:', errorText);
+                }
+            } catch (error) {
+                console.error('❌ Exception calling Claude API:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                if (error.code) console.error('Error code:', error.code);
+            }
+
+            console.log('Final traits being used:', traits);
+            console.log('=== END TRAIT GENERATION DEBUG ===');
+
+            // Create breeding action
+            await this.db.collection('actions').add({
+                type: 'breeding',
+                parent1Id: parent1.id,
+                parent2Id: parent2.id,
+                newThrongId: newThrongId,
+                meetingX: meetingX,
+                meetingY: meetingY,
+                parent1StartX: parent1.x,
+                parent1StartY: parent1.y,
+                parent2StartX: parent2.x,
+                parent2StartY: parent2.y,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: breedingEventId,
+                preGeneratedTraits: traits // Pass the generated traits
+            });
+
+            // Create breeding notification
+            await this.db.collection('feed').doc(`breeding-start-${breedingEventId}`).set({
+                title: 'Breeding',
+                description: 'Two Emulites have found love! They are coming together to begin breeding.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'breeding',
+                eventId: breedingEventId
+            });
+
+            // After creating the breeding action, schedule the throng creation server-side
+            setTimeout(async () => {
+                try {
+                    console.log('Starting server-side throng creation for:', newThrongId);
+                    console.log('Using traits:', traits);
+                    
+                    const worldSize = this.getVirtualWorldSize();
+                    const offsetDistance = 60;
+                    const angle = Math.random() * 2 * Math.PI;
+                    const babyX = meetingX + Math.cos(angle) * offsetDistance;
+                    const babyY = meetingY + Math.sin(angle) * offsetDistance;
+                    
+                    const finalBabyX = Math.max(0, Math.min(worldSize.width - 48, babyX));
+                    const finalBabyY = Math.max(0, Math.min(worldSize.height - 48, babyY));
+
+                    const newThrong = {
+                        id: newThrongId,
+                        x: finalBabyX,
+                        y: finalBabyY,
+                        currentSprite: 'idle',
+                        direction: 'down',
+                        animationFrame: 0,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        traits: traits // Use the AI-generated traits
+                    };
+
+                    // Create throng first
+                    await this.db.collection('throngs').doc(newThrongId).set(newThrong);
+                    console.log('Throng created successfully with traits:', traits);
+                    
+                    // Create birth feed entry
+                    await this.db.collection('feed').doc(`birth-${newThrongId}`).set({
+                        title: 'Birth',
+                        description: 'A new Emulite has been born! The group grows with this precious new life.',
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        action: 'birth',
+                        throngId: newThrongId
+                    });
+                    console.log('Birth feed entry created successfully');
+                    
+                    // Update stats for birth: +1 happiness, +1 sentience
+                    await this.updateHappiness(1);
+                    await this.updateSentience(1);
+                    
+                    console.log('Server-side throng creation completed successfully:', newThrongId);
+                    
+                } catch (error) {
+                    console.error('Failed to create throng server-side:', error);
+                    console.error('Error details:', error.message);
+                }
+            }, 15000); // Wait 15 seconds for breeding animation to complete
+
+            console.log('Automated breeding initiated:', breedingEventId);
+
+        } catch (error) {
+            console.error('Failed to perform automated breeding:', error);
+        }
     }
-}
 
     // ADD THESE TWO NEW METHODS AFTER performBreeding() but BEFORE performFire()
     async performLightningStrike() {
@@ -936,6 +975,10 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                     eventId: deathEventId
                 });
                 
+                // Update stats: -2 happiness, -1 sentience for death
+                await this.updateHappiness(-2);
+                await this.updateSentience(-1);
+                
             } else if (target.type === 'house') {
                 // Create burn house action
                 setTimeout(() => {
@@ -952,6 +995,9 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     action: 'death'
                 });
+                
+                // Update stats: -2 happiness for house burned down
+                await this.updateHappiness(-2);
                 
             } else if (target.type === 'apartment') {
                 // Create burn apartment action (similar to house)
@@ -970,6 +1016,9 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                     action: 'death'
                 });
                 
+                // Update stats: -2 happiness for apartment burned down
+                await this.updateHappiness(-2);
+                
             } else if (target.type === 'tree') {
                 // Create burn tree action
                 setTimeout(() => {
@@ -986,6 +1035,9 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     action: 'death'
                 });
+                
+                // Update stats: -2 happiness for tree burned down
+                await this.updateHappiness(-2);
             }
             
             console.log('Automated lightning strike completed:', target.type, target.id);
@@ -1039,24 +1091,15 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                 eventId: fireEventId
             });
             
+            // Update stats: -2 happiness, -1 sentience for death
+            await this.updateHappiness(-2);
+            await this.updateSentience(-1);
+            
             console.log('Automated fire strike completed:', victim.id);
             
         } catch (error) {
             console.error('Failed to perform automated fire strike:', error);
         }
-    }
-
-    // KEEP the existing performDeath() and performFire() methods as they were:
-    async performDeath() {
-        // This method can remain the same as it was in your original code
-        // Only adding it here for completeness if it was missing
-        console.log('performDeath called but not implemented in automation service');
-    }
-
-    async performFire() {
-        // This method can remain the same as it was in your original code
-        // Only adding it here for completeness if it was missing
-        console.log('performFire called but not implemented in automation service');
     }
 
     async triggerRainEvent() {
@@ -1082,6 +1125,8 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 action: 'weather'
             });
+
+            // Rain doesn't affect happiness or sentience in your spec
 
             console.log('Automated rain event triggered');
 
@@ -1111,6 +1156,8 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 action: 'weather'
             });
+
+            // Tornado doesn't affect happiness or sentience in your spec
 
             console.log('Automated sand storm event triggered');
 
@@ -1189,6 +1236,10 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
                         action: 'freeze',
                         eventId: snowEventId
                     });
+                    
+                    // Update stats: -2 happiness, -1 sentience for death
+                    await this.updateHappiness(-2);
+                    await this.updateSentience(-1);
                 }
             }
 
