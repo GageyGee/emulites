@@ -719,10 +719,9 @@ try {
     console.log('=== AUTOMATION SERVICE TRAIT GENERATION ===');
     console.log('Attempting to call Claude API...');
     
-    // Use the full URL since this is server-side
-    const apiUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://yourdomain.com/api/claude/generate-traits'
-        : 'http://localhost:3000/api/claude/generate-traits';
+    // Since the automation service runs on the same server as the API,
+    // we can call it internally using localhost
+    const apiUrl = 'http://localhost:3000/api/claude/generate-traits';
     
     console.log('API URL:', apiUrl);
     
