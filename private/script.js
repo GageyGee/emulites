@@ -18,6 +18,33 @@ import {
 
 class ThronsGame {
     constructor() {
+        // SECURITY: Disable console-based popup functions
+        window.alert = function(message) {
+            console.log('Blocked alert:', message);
+            return false;
+        };
+
+        window.prompt = function(message, defaultText) {
+            console.log('Blocked prompt:', message);
+            return null;
+        };
+
+        window.confirm = function(message) {
+            console.log('Blocked confirm:', message);
+            return false;
+        };
+
+        // Prevent eval() usage
+        window.eval = function() {
+            console.log('eval() blocked for security');
+            return null;
+        };
+
+        // Disable document.write
+        document.write = function() {
+            console.log('document.write blocked');
+        };
+
         this.db = window.db;
         
         if (!this.db) {
