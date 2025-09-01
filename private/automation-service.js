@@ -7,7 +7,7 @@ class AutomationService {
         throw new Error('Firebase Admin not initialized. Make sure server.js initializes it first.');
     }
 
-    // KEEP all your actions array exactly as it was
+    // UPDATED: Add lightning and fire actions to the array
     this.actions = [
         { name: 'buildHouse', weight: 8, method: this.performBuilding.bind(this) },
         { name: 'buildApartment', weight: 1, method: this.performApartmentBuilding.bind(this) },
@@ -16,7 +16,9 @@ class AutomationService {
         { name: 'breeding', weight: 45, method: this.performBreeding.bind(this) },
         { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
         { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
-        { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) }
+        { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) },
+        { name: 'lightning', weight: 0, method: this.performLightningStrike.bind(this) },
+        { name: 'fire', weight: 0, method: this.performFireStrike.bind(this) }
     ];
 
     this.db = admin.firestore();
@@ -867,6 +869,184 @@ console.log('=== END TRAIT GENERATION DEBUG ===');
     }
 }
 
+    // ADD THESE TWO NEW METHODS AFTER performBreeding() but BEFORE performFire()
+    async performLightningStrike() {
+        try {
+            // Check if there are any targets
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            const housesSnapshot = await this.db.collection('houses').get();
+            const apartmentsSnapshot = await this.db.collection('apartments').get();
+            const treesSnapshot = await this.db.collection('trees').get();
+            
+            const allTargets = [];
+            
+            // Add all throngs as targets
+            throngsSnapshot.forEach(doc => {
+                allTargets.push({ type: 'throng', id: doc.id, data: doc.data() });
+            });
+            
+            // Add all houses as targets
+            housesSnapshot.forEach(doc => {
+                allTargets.push({ type: 'house', id: doc.id, data: doc.data() });
+            });
+            
+            // Add all apartments as targets
+            apartmentsSnapshot.forEach(doc => {
+                allTargets.push({ type: 'apartment', id: doc.id, data: doc.data() });
+            });
+            
+            // Add all trees as targets
+            treesSnapshot.forEach(doc => {
+                allTargets.push({ type: 'tree', id: doc.id, data: doc.data() });
+            });
+            
+            if (allTargets.length === 0) {
+                console.log('No targets available for lightning strike');
+                
+                await this.db.collection('feed').add({
+                    title: 'Strike Failed',
+                    description: 'There is nothing to strike down!',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'death'
+                });
+                return;
+            }
+            
+            // Select a random target
+            const target = allTargets[Math.floor(Math.random() * allTargets.length)];
+            
+            if (target.type === 'throng') {
+                // Create unique event ID
+                const deathEventId = `lightning-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Create action first
+                await this.db.collection('actions').add({
+                    type: 'death',
+                    victimId: target.id,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    eventId: deathEventId
+                });
+                
+                // Create ONLY ONE feed entry immediately
+                await this.db.collection('feed').doc(`lightning-strike-${deathEventId}`).set({
+                    title: 'LIGHTNING STRIKE',
+                    description: 'Lightning strikes from the heavens! An Emulite has met their fate.',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'death',
+                    eventId: deathEventId
+                });
+                
+            } else if (target.type === 'house') {
+                // Create burn house action
+                setTimeout(() => {
+                    this.db.collection('actions').add({
+                        type: 'burnhouse',
+                        houseId: target.id,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }, 800);
+                
+                await this.db.collection('feed').add({
+                    title: 'House Struck by Lightning',
+                    description: 'Lightning strikes a house! The building bursts into flames.',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'death'
+                });
+                
+            } else if (target.type === 'apartment') {
+                // Create burn apartment action (similar to house)
+                setTimeout(() => {
+                    this.db.collection('actions').add({
+                        type: 'burnapartment',
+                        apartmentId: target.id,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }, 800);
+                
+                await this.db.collection('feed').add({
+                    title: 'Apartment Struck by Lightning',
+                    description: 'Lightning strikes an apartment building! The structure bursts into flames.',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'death'
+                });
+                
+            } else if (target.type === 'tree') {
+                // Create burn tree action
+                setTimeout(() => {
+                    this.db.collection('actions').add({
+                        type: 'burntree',
+                        treeId: target.id,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }, 800);
+                
+                await this.db.collection('feed').add({
+                    title: 'Tree Struck by Lightning',
+                    description: 'Lightning strikes a tree! The ancient wood catches fire.',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'death'
+                });
+            }
+            
+            console.log('Automated lightning strike completed:', target.type, target.id);
+            
+        } catch (error) {
+            console.error('Failed to perform automated lightning strike:', error);
+        }
+    }
+
+    async performFireStrike() {
+        try {
+            // Get all existing throngs
+            const throngsSnapshot = await this.db.collection('throngs').get();
+            const throngs = [];
+            throngsSnapshot.forEach(doc => {
+                throngs.push({ id: doc.id, ...doc.data() });
+            });
+            
+            if (throngs.length === 0) {
+                console.log('No throngs available for fire strike');
+                
+                await this.db.collection('feed').add({
+                    title: 'Fire Failed',
+                    description: 'There are no Emulites to burn!',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    action: 'fire'
+                });
+                return;
+            }
+            
+            // Select a random throng
+            const victim = throngs[Math.floor(Math.random() * throngs.length)];
+            
+            // Create unique event ID
+            const fireEventId = `fire-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Create action first
+            await this.db.collection('actions').add({
+                type: 'fire',
+                victimId: victim.id,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                eventId: fireEventId
+            });
+            
+            // Create ONLY ONE feed entry immediately
+            await this.db.collection('feed').doc(`fire-strike-${fireEventId}`).set({
+                title: 'CAUGHT ON FIRE',
+                description: 'Flames consume an Emulite! The fire burns bright and deadly.',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                action: 'fire',
+                eventId: fireEventId
+            });
+            
+            console.log('Automated fire strike completed:', victim.id);
+            
+        } catch (error) {
+            console.error('Failed to perform automated fire strike:', error);
+        }
+    }
+
+    // KEEP the existing performDeath() and performFire() methods as they were:
     async performDeath() {
         // This method can remain the same as it was in your original code
         // Only adding it here for completeness if it was missing
