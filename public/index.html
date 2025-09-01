@@ -200,42 +200,51 @@
     </style>
 </head>
 <body>
-    <script>
-    // SAFE POPUP BLOCKING - Doesn't break core JavaScript functionality
-    
-    window.alert = function(message) {
-        console.log('Blocked alert:', message);
-        return false;
-    };
-    
-    window.prompt = function(message, defaultText) {
-        console.log('Blocked prompt:', message);
-        return null;
-    };
-    
-    window.confirm = function(message) {
-        console.log('Blocked confirm:', message);
-        return false;
-    };
-    
-    window.eval = function() {
-        console.log('eval() blocked for security');
-        return null;
-    };
-    
-    // Block document.write
-    document.write = document.writeln = function() {
-        console.log('document.write blocked');
-    };
-    
-    // Block window.open
-    const originalOpen = window.open;
-    window.open = function(url, name, specs) {
-        console.log('Blocked window.open attempt');
-        return null;
-    };
-    
-    console.log('🛡️ Safe popup blocking active');
+  <script>
+    // IMMEDIATE NATIVE ALERT BLOCKING - Must be first thing that runs
+    (function() {
+        // Store references to original methods before any other code runs
+        const originalAlert = window.alert;
+        const originalPrompt = window.prompt; 
+        const originalConfirm = window.confirm;
+        
+        // Immediately replace with blocking versions
+        Object.defineProperty(window, 'alert', {
+            value: function(message) {
+                console.log('Blocked alert:', message);
+                return undefined;
+            },
+            writable: false,
+            configurable: false
+        });
+        
+        Object.defineProperty(window, 'prompt', {
+            value: function(message, defaultText) {
+                console.log('Blocked prompt:', message);
+                return null;
+            },
+            writable: false,
+            configurable: false
+        });
+        
+        Object.defineProperty(window, 'confirm', {
+            value: function(message) {
+                console.log('Blocked confirm:', message);
+                return false;
+            },
+            writable: false,
+            configurable: false
+        });
+        
+        // Block eval but don't break other functionality
+        const originalEval = window.eval;
+        window.eval = function() {
+            console.log('eval() blocked for security');
+            return null;
+        };
+        
+        console.log('Native popup blocking active');
+    })();
 </script>
     
     <!-- Loading Screen -->
