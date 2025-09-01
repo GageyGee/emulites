@@ -122,6 +122,7 @@ const auth = getAuth(app);
 window.db = db;
 window.auth = auth;
 window.app = app;
+window.ADMIN_WALLET_ADDRESS = "${process.env.ADMIN_WALLET_ADDRESS}";
 
 // Export for module usage
 export { db };
