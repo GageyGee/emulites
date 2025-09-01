@@ -38,6 +38,43 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
+// Rate limiting middleware to prevent attack spam
+const requestCounts = new Map();
+app.use((req, res, next) => {
+    const clientIP = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (!requestCounts.has(clientIP)) {
+        requestCounts.set(clientIP, []);
+    }
+    
+    const requests = requestCounts.get(clientIP);
+    // Remove requests older than 1 minute
+    const recentRequests = requests.filter(time => now - time < 60000);
+    
+    if (recentRequests.length > 50) { // Block if >50 requests per minute
+        console.log(`Rate limit exceeded for IP: ${clientIP}`);
+        return res.status(429).json({ error: 'Rate limit exceeded' });
+    }
+    
+    recentRequests.push(now);
+    requestCounts.set(clientIP, recentRequests);
+    next();
+});
+
+// Clean up old entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, requests] of requestCounts) {
+        const recent = requests.filter(time => now - time < 60000);
+        if (recent.length === 0) {
+            requestCounts.delete(ip);
+        } else {
+            requestCounts.set(ip, recent);
+        }
+    }
+}, 300000);
+
 // Import and use Claude API routes
 const claudeApi = require('./private/claude-api');
 app.use('/api/claude', claudeApi);
