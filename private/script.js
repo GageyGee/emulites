@@ -863,9 +863,10 @@ async connectWallet() {
     }
 }
 
-// ADD THIS NEW METHOD RIGHT AFTER connectWallet():
 async authenticateAsAdmin() {
     try {
+        console.log('Attempting to authenticate admin wallet with Firebase...');
+        
         // Get admin token from server
         const response = await fetch('/api/auth/admin-token', {
             method: 'POST',
@@ -878,19 +879,31 @@ async authenticateAsAdmin() {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
         
         // Sign in with the custom token
         const { signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
-        await signInWithCustomToken(window.auth, data.customToken);
+        const userCredential = await signInWithCustomToken(window.auth, data.customToken);
         
         console.log('Successfully authenticated as admin with Firebase');
+        console.log('User:', userCredential.user.uid);
+        
+        // Optional: Show success notification
+        this.showNotification('success', 'Admin Authenticated', 'Successfully authenticated as admin.', 3000);
+        
     } catch (error) {
         console.error('Failed to authenticate as admin:', error);
-        this.showNotification('error', 'Admin Auth Failed', 'Failed to authenticate as admin.', 5000);
+        
+        // Don't show error notification for non-admin wallets
+        if (error.message.includes('Not authorized')) {
+            console.log('Non-admin wallet connected - this is normal');
+        } else {
+            this.showNotification('warning', 'Auth Warning', 'Admin authentication failed but wallet connected.', 3000);
+        }
     }
 }
     
