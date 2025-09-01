@@ -1,6 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!DOCTYPE html>
+<html>
+<head>
+    <!-- Put this as the VERY FIRST script in <head> -->
+    <script>
+        // NUCLEAR POPUP BLOCKING - Runs before DOM or any other scripts
+        (function(){
+            const noop = function() {};
+            Object.defineProperty(window, 'alert', {
+                value: noop,
+                writable: true,
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(window, 'confirm', {
+                value: function() { return false; },
+                writable: true,
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(window, 'prompt', {
+                value: function() { return null; },
+                writable: true,
+                enumerable: true,
+                configurable: true
+            });
+        })();
+    </script>
+    
+    <!-- Your other meta tags here -->
+    <meta charset="UTF-8">
+    <!-- etc -->
+</head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' blob: data:; img-src 'self' blob: data: https:; connect-src 'self' https: wss: blob: data:; font-src 'self' data: https:;">
@@ -200,31 +233,6 @@
     </style>
 </head>
 <body>
- <script>
-    // SIMPLE POPUP BLOCKING - Override without breaking JavaScript engine
-    window.alert = function(message) {
-        console.log('Blocked alert:', message);
-        // Don't show popup, just log and return
-    };
-    
-    window.prompt = function(message, defaultText) {
-        console.log('Blocked prompt:', message);
-        return null;
-    };
-    
-    window.confirm = function(message) {
-        console.log('Blocked confirm:', message);
-        return false;
-    };
-    
-    // Minimal eval blocking
-    window.eval = function() {
-        console.log('eval() blocked');
-        return null;
-    };
-    
-    console.log('Simple popup blocking active');
-</script>
     
     <!-- Loading Screen -->
     <div id="loadingScreen">
