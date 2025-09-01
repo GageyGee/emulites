@@ -200,37 +200,68 @@
     </style>
 </head>
 <body>
-   <script>
-       // IMMEDIATE POPUP BLOCKING - Must run before any other scripts
-       window.alert = function(message) {
-           console.log('Blocked alert:', message);
-           return false;
-       };
-       
-       window.prompt = function(message, defaultText) {
-           console.log('Blocked prompt:', message);
-           return null;
-       };
-       
-       window.confirm = function(message) {
-           console.log('Blocked confirm:', message);
-           return false;
-       };
-       
-       window.eval = function() {
-           console.log('eval() blocked for security');
-           return null;
-       };
-   </script>
-   
-   <!-- Loading Screen -->
-   <div id="loadingScreen">
-       <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
-       <div class="loading-text">Connecting to server</div>
-       <div class="loading-dots">
-           <span>.</span><span>.</span><span>.</span>
-       </div>
-   </div>
+    <script>
+        // BULLETPROOF POPUP BLOCKING - Catches all methods including queued alerts
+        
+        // Block standard popup methods
+        const blockPopup = function(type, message) {
+            console.log(`Blocked ${type}:`, message);
+            return false;
+        };
+        
+        window.alert = (msg) => blockPopup('alert', msg);
+        window.prompt = (msg, def) => { blockPopup('prompt', msg); return null; };
+        window.confirm = (msg) => blockPopup('confirm', msg);
+        
+        // Block eval and Function constructor
+        window.eval = () => { console.log('eval blocked'); return null; };
+        const OriginalFunction = window.Function;
+        window.Function = function() { 
+            console.log('Function constructor blocked'); 
+            return () => {}; 
+        };
+        
+        // Block showModalDialog (older IE method)
+        if (window.showModalDialog) {
+            window.showModalDialog = (url, args, opts) => blockPopup('showModalDialog', url);
+        }
+        
+        // Override console methods that could trigger UI
+        const originalConsole = {...console};
+        window.console.assert = function() { 
+            originalConsole.log('console.assert blocked'); 
+        };
+        
+        // Block document.write
+        document.write = document.writeln = () => console.log('document.write blocked');
+        
+        // Prevent iframe injection
+        const originalCreateElement = document.createElement;
+        document.createElement = function(tag) {
+            if (tag && (tag.toLowerCase() === 'iframe' || tag.toLowerCase() === 'script')) {
+                console.log('Blocked element creation:', tag);
+                return originalCreateElement.call(document, 'div');
+            }
+            return originalCreateElement.call(document, tag);
+        };
+        
+        // Clear any existing timers that might trigger delayed alerts
+        let highestTimeoutId = setTimeout(';');
+        for (let i = 0; i < highestTimeoutId; i++) {
+            clearTimeout(i);
+        }
+        
+        console.log('🛡️ Comprehensive popup blocking active');
+    </script>
+    
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
+        <div class="loading-text">Connecting to server</div>
+        <div class="loading-dots">
+            <span>.</span><span>.</span><span>.</span>
+        </div>
+    </div>
 
     <!-- Mobile Block Screen -->
     <div id="mobileBlockScreen">
