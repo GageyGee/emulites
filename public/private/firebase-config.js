@@ -5,12 +5,12 @@ import { getAuth } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCM3n1ppVblGQZv2gIowDGbXemYh4SLBzE",
-  authDomain: "emulites-fa2c9.firebaseapp.com",
-  projectId: "emulites-fa2c9",
-  storageBucket: "emulites-fa2c9.firebasestorage.app",
-  messagingSenderId: "489721961642",
-  appId: "1:489721961642:web:c26f5ef7008263e5ed44d3"
+  apiKey: "AIzaSyCGfPQxPXrfx3Nrl8_b1JBsHzDc8qNVVtM",
+  authDomain: "emulites-test.firebaseapp.com",
+  projectId: "emulites-test",
+  storageBucket: "emulites-test.firebasestorage.app",
+  messagingSenderId: "122937034892",
+  appId: "1:122937034892:web:39b30453feea55ee7853a9"
 };
 
 // Initialize Firebase
