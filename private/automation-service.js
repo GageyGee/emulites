@@ -712,33 +712,57 @@ async performBreeding() {
         const sortedParentIds = [parent1.id, parent2.id].sort();
         const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
 
-        // Generate AI traits server-side using Claude API
-        let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
+// Generate AI traits server-side using Claude API
+let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
+
+try {
+    console.log('=== AUTOMATION SERVICE TRAIT GENERATION ===');
+    console.log('Attempting to call Claude API...');
+    
+    // Use the full URL since this is server-side
+    const apiUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://yourdomain.com/api/claude/generate-traits'
+        : 'http://localhost:3000/api/claude/generate-traits';
+    
+    console.log('API URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        timeout: 10000 // 10 second timeout
+    });
+    
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+    
+    if (response.ok) {
+        const data = await response.json();
+        console.log('API Response data:', JSON.stringify(data, null, 2));
         
-        try {
-            console.log('Calling Claude API for trait generation...');
-            const response = await fetch('http://localhost:3000/api/claude/generate-traits', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000 // 10 second timeout
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.traits && Array.isArray(data.traits) && data.traits.length === 3) {
-                    traits = data.traits;
-                    console.log('Successfully generated AI traits:', traits);
-                } else {
-                    console.log('Invalid API response, using fallback traits');
-                }
-            } else {
-                console.log('API call failed with status:', response.status, 'using fallback traits');
-            }
-        } catch (error) {
-            console.error('Failed to generate AI traits, using fallback:', error.message);
+        if (data.traits && Array.isArray(data.traits) && data.traits.length === 3) {
+            traits = data.traits;
+            console.log('✅ Successfully generated AI traits:', traits);
+        } else {
+            console.log('❌ Invalid API response format, using fallback traits');
+            console.log('Expected: {traits: [string, string, string]}');
+            console.log('Received:', data);
         }
+    } else {
+        const errorText = await response.text();
+        console.log('❌ API call failed with status:', response.status);
+        console.log('Error response:', errorText);
+    }
+} catch (error) {
+    console.error('❌ Exception calling Claude API:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    if (error.code) console.error('Error code:', error.code);
+}
+
+console.log('Final traits being used:', traits);
+console.log('=== END TRAIT GENERATION DEBUG ===');
 
         // Create breeding action
         await this.db.collection('actions').add({
