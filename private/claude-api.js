@@ -8,11 +8,13 @@ if (!CLAUDE_API_KEY) {
     console.error('CLAUDE_API_KEY environment variable is not set');
 }
 
-// Generate 3 unique traits for new Emulite
 router.post('/generate-traits', async (req, res) => {
+    console.log('=== CLAUDE API ROUTE CALLED ===');
+    console.log('Request received at:', new Date().toISOString());
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    
     if (!CLAUDE_API_KEY) {
-        console.error('Claude API key not configured');
-        // Fallback traits if API key is missing
+        console.error('❌ Claude API key not configured');
         const fallbackTraits = [
             ['Brave', 'Curious', 'Loyal'],
             ['Witty', 'Patient', 'Creative'],
@@ -22,8 +24,12 @@ router.post('/generate-traits', async (req, res) => {
         ];
         
         const randomTraitSet = fallbackTraits[Math.floor(Math.random() * fallbackTraits.length)];
+        console.log('Returning fallback traits due to missing API key:', randomTraitSet);
         return res.json({ traits: randomTraitSet });
     }
+
+    console.log('✅ Claude API key is configured');
+    console.log('Making request to Claude API...');
 
     try {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -38,35 +44,43 @@ router.post('/generate-traits', async (req, res) => {
                 max_tokens: 100,
                 messages: [{
                     role: 'user',
-                    content: 'Generate exactly 3 unique personality traits for a digital creature called an Emulite. Choose from traits like: Curious, Loyal, Witty, Creative, Humble, Energetic, Wise, Clever as examples, dont just take from this list, create them on your own. Respond only with a JSON object in this exact format: {"traits": ["trait1", "trait2", "trait3"]}'
+                    content: 'Generate exactly 3 unique personality traits for a digital creature called an Emulite. Choose from traits like: Curious, Loyal, Witty, Creative, Humble, Energetic, Wise, Clever as examples, but dont just take from this list, create them on your own. Respond only with a JSON object in this exact format: {"traits": ["trait1", "trait2", "trait3"]}'
                 }]
             })
         });
 
+        console.log('Claude API response status:', response.status);
+
         if (!response.ok) {
-            throw new Error(`Claude API error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Claude API error response:', errorText);
+            throw new Error(`Claude API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
-        const responseText = data.content[0].text.trim();
+        console.log('Claude API response data:', JSON.stringify(data, null, 2));
         
-        // Try to parse JSON response
+        const responseText = data.content[0].text.trim();
+        console.log('Claude response text:', responseText);
+        
         try {
             const parsed = JSON.parse(responseText);
             if (parsed.traits && Array.isArray(parsed.traits) && parsed.traits.length === 3) {
+                console.log('✅ Successfully parsed AI traits:', parsed.traits);
                 res.json({ traits: parsed.traits });
                 return;
+            } else {
+                console.error('❌ Invalid traits format:', parsed);
             }
         } catch (parseError) {
-            console.error('Failed to parse Claude response as JSON:', parseError);
+            console.error('❌ Failed to parse Claude response as JSON:', parseError);
+            console.error('Raw response text was:', responseText);
         }
 
-        // If parsing fails, use fallback
         throw new Error('Invalid Claude API response format');
 
     } catch (error) {
-        console.error('Error calling Claude API:', error);
-        // Fallback traits if API fails
+        console.error('❌ Error calling Claude API for traits:', error);
         const fallbackTraits = [
             ['Brave', 'Curious', 'Loyal'],
             ['Witty', 'Patient', 'Creative'],
@@ -79,6 +93,7 @@ router.post('/generate-traits', async (req, res) => {
         ];
         
         const randomTraitSet = fallbackTraits[Math.floor(Math.random() * fallbackTraits.length)];
+        console.log('Returning fallback traits due to error:', randomTraitSet);
         res.json({ traits: randomTraitSet });
     }
 });
