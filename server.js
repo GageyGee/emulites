@@ -242,51 +242,8 @@ app.post('/api/auth/admin-token', async (req, res) => {
     }
 });
 
-// Admin endpoints that require wallet verification
-app.post('/api/admin/:action', async (req, res) => {
-    try {
-        const { walletAddress } = req.body;
-        const action = req.params.action;
-        
-        // Verify this is your admin wallet
-        if (walletAddress !== 'sDoTsdt9QPDMcJg2u9kATMxsh8FVboz4eoTrxTvibqB') {
-            return res.status(403).json({ error: 'Access denied - invalid wallet address' });
-        }
-        
-        // Execute the action using the automation service
-        if (!global.automationService) {
-            return res.status(500).json({ error: 'Automation service not available' });
-        }
-        
-        // Map actions to automation service methods
-        const actionMethods = {
-            'buildHouse': () => global.automationService.performBuilding(),
-            'buildApartment': () => global.automationService.performApartmentBuilding(),
-            'breeding': () => global.automationService.performBreeding(),
-            'plantTree': () => global.automationService.performPlantTree(),
-            'buildFirepit': () => global.automationService.performBuildFirepit(),
-            'discoverBones': () => global.automationService.performDiscoverBones(),
-            'dropEgg': () => global.automationService.performDropEgg(),
-            'crashUFO': () => global.automationService.performCrashUFO(),
-            'death': () => global.automationService.performDeath(),
-            'fire': () => global.automationService.performFire(),
-            'rain': () => global.automationService.triggerRainEvent(),
-            'tornado': () => global.automationService.triggerTornadoEvent(),
-            'snow': () => global.automationService.triggerSnowEvent()
-        };
-        
-        if (actionMethods[action]) {
-            await actionMethods[action]();
-            res.json({ message: `${action} executed successfully` });
-        } else {
-            res.status(400).json({ error: 'Invalid action' });
-        }
-        
-    } catch (error) {
-        console.error(`Admin action ${req.params.action} failed:`, error);
-        res.status(500).json({ error: 'Action failed' });
-    }
-});
+// Use secure admin routes
+app.use('/api/admin', require('./private/secure-admin'));
 
 // Add automation control endpoints
 app.post('/api/automation/start', (req, res) => {
