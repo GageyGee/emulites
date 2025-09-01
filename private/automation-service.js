@@ -674,6 +674,7 @@ start() {
 
     async performBreeding() {
         try {
+            console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
             // Get all existing throngs
             const throngsSnapshot = await this.db.collection('throngs').get();
             const throngs = [];
