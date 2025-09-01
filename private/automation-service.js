@@ -672,7 +672,7 @@ scheduleNextAction() {
         }
     }
 
- async performBreeding() {
+async performBreeding() {
     try {
         console.log('Automation service auth token:', this.customToken ? 'EXISTS' : 'MISSING');
         // Get all existing throngs
@@ -712,17 +712,32 @@ scheduleNextAction() {
         const sortedParentIds = [parent1.id, parent2.id].sort();
         const breedingEventId = `breeding-${sortedParentIds[0]}-${sortedParentIds[1]}-${Date.now()}`;
 
-        // Generate traits (fallback traits for server-side)
-        const possibleTraits = [
-            'Mysterious', 'Curious', 'Brave', 'Gentle', 'Wise', 'Playful', 
-            'Bold', 'Shy', 'Energetic', 'Calm', 'Adventurous', 'Thoughtful'
-        ];
-        const traits = [];
-        for (let i = 0; i < 3; i++) {
-            const trait = possibleTraits[Math.floor(Math.random() * possibleTraits.length)];
-            if (!traits.includes(trait)) {
-                traits.push(trait);
+        // Generate AI traits server-side using Claude API
+        let traits = ['Mysterious', 'Curious', 'Brave']; // Fallback
+        
+        try {
+            console.log('Calling Claude API for trait generation...');
+            const response = await fetch('http://localhost:3000/api/claude/generate-traits', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000 // 10 second timeout
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.traits && Array.isArray(data.traits) && data.traits.length === 3) {
+                    traits = data.traits;
+                    console.log('Successfully generated AI traits:', traits);
+                } else {
+                    console.log('Invalid API response, using fallback traits');
+                }
+            } else {
+                console.log('API call failed with status:', response.status, 'using fallback traits');
             }
+        } catch (error) {
+            console.error('Failed to generate AI traits, using fallback:', error.message);
         }
 
         // Create breeding action
@@ -739,7 +754,7 @@ scheduleNextAction() {
             parent2StartY: parent2.y,
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             eventId: breedingEventId,
-            preGeneratedTraits: traits
+            preGeneratedTraits: traits // Pass the generated traits
         });
 
         // Create breeding notification
@@ -755,6 +770,7 @@ scheduleNextAction() {
         setTimeout(async () => {
             try {
                 console.log('Starting server-side throng creation for:', newThrongId);
+                console.log('Using traits:', traits);
                 
                 const worldSize = this.getVirtualWorldSize();
                 const offsetDistance = 60;
@@ -773,12 +789,12 @@ scheduleNextAction() {
                     direction: 'down',
                     animationFrame: 0,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    traits: traits
+                    traits: traits // Use the AI-generated traits
                 };
 
                 // Create throng first
                 await this.db.collection('throngs').doc(newThrongId).set(newThrong);
-                console.log('Throng created successfully');
+                console.log('Throng created successfully with traits:', traits);
                 
                 // Create birth feed entry
                 await this.db.collection('feed').doc(`birth-${newThrongId}`).set({
