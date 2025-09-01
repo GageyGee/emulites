@@ -131,7 +131,6 @@ this.serverStats = {
         this.connection = null;
         // Use the correct token from solana-config.js
         this.THRONG_TOKEN_MINT = window.SOLANA_CONFIG?.THRONG_TOKEN_MINT || 'B9iPvm8YybydhvMiKAuJuygEKuzspgxdavhFNzzUpump';
-        this.ADMIN_WALLET = 'sDoTsdt9QPDMcJg2u9kATMxsh8FVboz4eoTrxTvibqB';
         this.RPC_URL = window.SOLANA_CONFIG?.RPC_URL || 'https://radial-chaotic-pool.solana-mainnet.quiknode.pro/192e8e76f0a288f5a32ace0b676f7f34778f219f/';
         this.BURN_ADDRESS = window.SOLANA_CONFIG?.BURN_ADDRESS || '1nc1nerator11111111111111111111111111111111';
         this.tokenBalance = 0;
@@ -950,11 +949,8 @@ async disconnectWallet() {
     }
     
 updateActionButtons() {
-    // Get all action buttons
     const nameThrongBtn = document.getElementById('nameThrongBtn');
     const adminSection = document.getElementById('adminSection');
-    
-    // Weather buttons - visible to all connected wallets
     const weatherButtons = [
         document.getElementById('rainBtn'),
         document.getElementById('tornadoBtn'),
@@ -962,19 +958,13 @@ updateActionButtons() {
     ].filter(btn => btn !== null);
 
     if (!this.wallet) {
-        // No wallet connected - hide all buttons
         if (nameThrongBtn) nameThrongBtn.style.display = 'none';
         if (adminSection) adminSection.style.display = 'none';
         weatherButtons.forEach(btn => btn.style.display = 'none');
         return;
     }
 
-    // Wallet is connected
-    const isAdmin = this.isAdminWallet();
-
-    console.log('Current wallet:', this.wallet.toString());
-
-    // Name Throng button - visible to all connected wallets
+    // Show name button for all connected wallets
     if (nameThrongBtn) {
         nameThrongBtn.style.display = 'block';
         if (this.tokenBalance < 1) {
@@ -986,34 +976,11 @@ updateActionButtons() {
         }
     }
 
-    // Admin section and dropdown - only visible to admin wallet
-    if (adminSection) {
-        if (isAdmin) {
-            adminSection.style.display = 'block';
-        } else {
-            adminSection.style.display = 'none';
-        }
-    }
-
-    // Admin dropdown - only enabled for admin wallet
-    const adminDropdown = document.getElementById('adminDropdown');
-    if (adminDropdown) {
-        if (isAdmin) {
-            adminDropdown.style.display = 'block';
-            adminDropdown.disabled = false;
-        } else {
-            adminDropdown.style.display = 'none';
-            adminDropdown.disabled = true;
-        }
-    }
-
-    // Weather buttons - visible to all connected wallets
+    // Show admin section for all users - server will validate
+    if (adminSection) adminSection.style.display = 'block';
+    
     weatherButtons.forEach(btn => {
-        btn.style.display = 'block';
-        btn.classList.remove('disabled');
-        btn.disabled = false;
-    });
-}
+        btn.style.di
     
     async burnToken() {
         if (!this.wallet || this.tokenBalance < 1) {
@@ -1146,7 +1113,55 @@ updateActionButtons() {
             return false;
         }
     }
-    
+
+async executeAdminAction(action) {
+    if (!this.wallet) {
+        this.showNotification('error', 'Wallet Required', 'Please connect your wallet first.', 3000);
+        return;
+    }
+
+    try {
+        // Create message to sign
+        const timestamp = Date.now();
+        const nonce = Math.random().toString(36).substring(2);
+        const message = `Admin action: ${action}\nTimestamp: ${timestamp}\nNonce: ${nonce}`;
+        
+        // Request signature from wallet
+        const encodedMessage = new TextEncoder().encode(message);
+        const signature = await window.solana.signMessage(encodedMessage, 'utf8');
+        
+        this.showNotification('info', 'Processing', `Executing ${action}...`, 3000);
+        
+        // Send signed request to server
+        const response = await fetch(`/api/admin/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                walletAddress: this.wallet.toString(),
+                message: message,
+                signature: Array.from(signature.signature),
+                timestamp: timestamp,
+                nonce: nonce
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            this.showNotification('success', 'Success', result.message || `${action} completed successfully!`, 3000);
+        } else {
+            const error = await response.json();
+            this.showNotification('error', 'Failed', error.error || `${action} failed`, 5000);
+        }
+    } catch (error) {
+        console.error('Admin action failed:', error);
+        if (error.message.includes('User rejected')) {
+            this.showNotification('error', 'Cancelled', 'Transaction was cancelled by user.', 3000);
+        } else {
+            this.showNotification('error', 'Error', 'Network error occurred', 5000);
+        }
+    }
+}
+        
   setupActionDropdown() {
     // Name Throng button - always visible when wallet connected, costs tokens
     const nameThrongBtn = document.getElementById('nameThrongBtn');
@@ -1199,40 +1214,7 @@ updateActionButtons() {
     }
 }
 
-  async executeAdminAction(action) {
-    if (!this.isAdminWallet()) {
-        this.showNotification('error', 'Access Denied', 'Admin privileges required.', 3000);
-        return;
-    }
-    
-    try {
-        this.showNotification('info', 'Processing', `Executing ${action}...`, 3000);
-        
-        // Call backend directly instead of doing client-side auth
-        const response = await fetch(`/api/admin/${action}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                walletAddress: this.wallet.toString()
-            })
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            this.showNotification('success', 'Success', result.message || `${action} completed successfully!`, 3000);
-        } else {
-            const error = await response.json();
-            this.showNotification('error', 'Failed', error.error || `${action} failed`, 5000);
-        }
-    } catch (error) {
-        console.error('Admin action failed:', error);
-        this.showNotification('error', 'Error', 'Network error occurred', 5000);
-    }
-}
-    
-    isAdminWallet() {
-    return this.wallet && this.wallet.toString() === this.ADMIN_WALLET;
-}
+
     
     startNamingMode() {
         this.isNamingMode = true;
