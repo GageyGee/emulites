@@ -109,21 +109,21 @@ start() {
         return this.actionDuration;
     }
 
-    scheduleNextAction() {
-        if (!this.isRunning) return;
-        
-        // Random delay between 20-40 minutes (1200000ms - 2400000ms)
-        const delay = Math.floor(Math.random() * (2400000 - 1200000 + 1)) + 1200000;
-        this.actionDuration = delay;
-        this.nextActionTime = Date.now() + delay;
-        
-        const minutes = Math.round(delay / 60000 * 10) / 10;
-        console.log(`Next automated action scheduled in ${minutes} minutes`);
-        this.currentTimeout = setTimeout(() => {
-            this.executeRandomAction();
-            this.scheduleNextAction(); // Schedule the next one
-        }, delay);
-    }
+scheduleNextAction() {
+    if (!this.isRunning) return;
+    
+    // Random delay between 1-3 minutes (60000ms - 180000ms)
+    const delay = Math.floor(Math.random() * (180000 - 60000 + 1)) + 60000;
+    this.actionDuration = delay;
+    this.nextActionTime = Date.now() + delay;
+    
+    const minutes = Math.round(delay / 60000 * 10) / 10;
+    console.log(`Next automated action scheduled in ${minutes} minutes`);
+    this.currentTimeout = setTimeout(() => {
+        this.executeRandomAction();
+        this.scheduleNextAction(); // Schedule the next one
+    }, delay);
+}
 
     executeRandomAction() {
         const selectedAction = this.selectWeightedAction();
