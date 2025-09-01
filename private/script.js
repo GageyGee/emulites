@@ -980,7 +980,10 @@ updateActionButtons() {
     if (adminSection) adminSection.style.display = 'block';
     
     weatherButtons.forEach(btn => {
-        btn.style.di
+        btn.style.display = 'block';
+        btn.disabled = false;
+    });
+}
     
     async burnToken() {
         if (!this.wallet || this.tokenBalance < 1) {
