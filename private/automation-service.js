@@ -28,6 +28,7 @@ class AutomationService {
 
         // Initialize authentication for database operations
         this.initializeAuth();
+        this.initializeServerStats();
 
         console.log('AutomationService initialized with Firebase Admin SDK');
     }
@@ -45,6 +46,38 @@ class AutomationService {
             console.error('Failed to create automation service token:', error);
         }
     }
+
+    async initializeServerStats() {
+    try {
+        const statsDocRef = this.db.collection('serverStats').doc('global');
+        const statsDoc = await statsDocRef.get();
+        
+        if (!statsDoc.exists) {
+            console.log('Creating initial server stats document...');
+            await statsDocRef.set({
+                happiness: 50,
+                sentience: 50,
+                mysteries: 0,
+                created: admin.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('Initial server stats created');
+        }
+    } catch (error) {
+        console.error('Error initializing server stats:', error);
+    }
+}
+
+start() {
+    if (this.isRunning) {
+        console.log('Automation service already running');
+        return;
+    }
+
+    this.isRunning = true;
+    console.log('Starting automation service...');
+    this.scheduleNextAction();
+}
 
     start() {
         if (this.isRunning) {
