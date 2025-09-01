@@ -17,8 +17,8 @@ class AutomationService {
             { name: 'rain', weight: 5, method: this.triggerRainEvent.bind(this) },
             { name: 'tornado', weight: 2, method: this.triggerTornadoEvent.bind(this) },
             { name: 'snow', weight: 2, method: this.triggerSnowEvent.bind(this) },
-            { name: 'lightning', weight: 0, method: this.performLightningStrike.bind(this) },
-            { name: 'fire', weight: 0, method: this.performFireStrike.bind(this) }
+            { name: 'lightning', weight: 1, method: this.performLightningStrike.bind(this) },
+            { name: 'fire', weight: 1, method: this.performFireStrike.bind(this) }
         ];
 
         this.db = admin.firestore();
