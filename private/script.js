@@ -376,41 +376,38 @@ restartDotAnimation() {
     
 async loadServerStats() {
     try {
+        console.log('Loading server stats...');
+        
         // Get the specific global stats document
         const statsDocRef = doc(this.db, 'serverStats', 'global');
         const statsDoc = await getDoc(statsDocRef);
         
         if (!statsDoc.exists()) {
-            // Only create initial stats if no document exists at all
-            console.log('Creating initial server stats document');
-            await setDoc(statsDocRef, {
-                happiness: 50,
-                sentience: 50,
-                mysteries: 0,
-                lastUpdated: serverTimestamp(),
-                created: serverTimestamp()
-            });
-            
+            console.log('Server stats document does not exist, using defaults');
+            // Set defaults but don't try to create - let automation service handle that
             this.serverStats.happiness = 50;
             this.serverStats.sentience = 50;
             this.serverStats.mysteries = 0;
         } else {
-            // Load existing stats - ALWAYS use what's in the database
+            // Load existing stats
             const statsData = statsDoc.data();
-            console.log('Loading existing server stats from Firebase:', statsData);
+            console.log('Loaded server stats:', statsData);
             
             this.serverStats.happiness = statsData.happiness !== undefined ? statsData.happiness : 50;
             this.serverStats.sentience = statsData.sentience !== undefined ? statsData.sentience : 50;
             this.serverStats.mysteries = statsData.mysteries !== undefined ? statsData.mysteries : 0;
-            
-            console.log('Local stats set to:', this.serverStats);
         }
+        
+        console.log('Server stats initialized:', this.serverStats);
     } catch (error) {
         console.error('Error loading server stats:', error);
-        // Only use defaults if there's a connection error
+        // Use defaults on any error
         this.serverStats.happiness = 50;
         this.serverStats.sentience = 50;
         this.serverStats.mysteries = 0;
+        
+        // Don't show error notification for read-only users
+        console.log('Using default server stats due to read error');
     }
 }
     
@@ -845,10 +842,10 @@ async connectWallet() {
         const response = await window.solana.connect();
         this.wallet = response.publicKey;
         
-        // NEW: Authenticate with Firebase if this is the admin wallet
+        // Just log admin wallet detection - no Firebase auth needed
         if (this.isAdminWallet()) {
-            console.log('Admin wallet detected, authenticating with Firebase...');
-            await this.authenticateAsAdmin();
+            console.log('Admin wallet detected');
+            this.showNotification('success', 'Admin Access', 'Admin privileges enabled.', 3000);
         }
         
         this.onWalletConnect();
@@ -863,62 +860,11 @@ async connectWallet() {
     }
 }
 
-async authenticateAsAdmin() {
-    try {
-        console.log('Attempting to authenticate admin wallet with Firebase...');
-        
-        // Get admin token from server
-        const response = await fetch('/api/auth/admin-token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                walletAddress: this.wallet.toString()
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        // Sign in with the custom token
-        const { signInWithCustomToken } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
-        const userCredential = await signInWithCustomToken(window.auth, data.customToken);
-        
-        console.log('Successfully authenticated as admin with Firebase');
-        console.log('User:', userCredential.user.uid);
-        
-        // Optional: Show success notification
-        this.showNotification('success', 'Admin Authenticated', 'Successfully authenticated as admin.', 3000);
-        
-    } catch (error) {
-        console.error('Failed to authenticate as admin:', error);
-        
-        // Don't show error notification for non-admin wallets
-        if (error.message.includes('Not authorized')) {
-            console.log('Non-admin wallet connected - this is normal');
-        } else {
-            this.showNotification('warning', 'Auth Warning', 'Admin authentication failed but wallet connected.', 3000);
-        }
-    }
-}
     
 async disconnectWallet() {
     try {
         if (window.solana) {
             await window.solana.disconnect();
-        }
-        
-        // NEW: Sign out from Firebase if authenticated
-        if (window.auth && window.auth.currentUser) {
-            console.log('Signing out from Firebase...');
-            const { signOut } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
-            await signOut(window.auth);
-            console.log('Signed out from Firebase');
         }
         
         this.wallet = null;
