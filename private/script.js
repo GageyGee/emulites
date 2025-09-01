@@ -18,7 +18,7 @@ import {
 
 class ThronsGame {
     constructor() {
-        // SECURITY: Comprehensive console attack prevention
+        // SECURITY: Disable console-based popup functions
         window.alert = function(message) {
             console.log('Blocked alert:', message);
             return false;
@@ -43,33 +43,6 @@ class ThronsGame {
         // Disable document.write
         document.write = function() {
             console.log('document.write blocked');
-        };
-
-        // DOM Protection
-        const originalCreateElement = document.createElement;
-        document.createElement = function(tagName) {
-            if (tagName && tagName.toLowerCase() === 'script') {
-                console.log('Blocked script element creation');
-                return originalCreateElement.call(document, 'div');
-            }
-            return originalCreateElement.call(document, tagName);
-        };
-
-        // Prevent window.open spam
-        const originalOpen = window.open;
-        window.open = function(url, name, specs) {
-            console.log('Blocked window.open attempt');
-            return null;
-        };
-
-        // Protect localStorage
-        const originalSetItem = localStorage.setItem;
-        localStorage.setItem = function(key, value) {
-            if (typeof value === 'string' && value.length > 10000) {
-                console.log('Blocked large localStorage write');
-                return;
-            }
-            return originalSetItem.call(this, key, value);
         };
 
         this.db = window.db;
