@@ -18,7 +18,7 @@ import {
 
 class ThronsGame {
     constructor() {
-        // COMPREHENSIVE SECURITY: Block all console-based attacks
+        // SECURITY: Block console-based attacks (corrected version)
         
         // Block popup functions
         window.alert = function(message) {
@@ -36,16 +36,10 @@ class ThronsGame {
             return false;
         };
         
-        // Block eval and Function constructor
+        // Block eval
         window.eval = function() {
             console.log('eval() blocked for security');
             return null;
-        };
-        
-        const OriginalFunction = window.Function;
-        window.Function = function() {
-            console.log('Function constructor blocked');
-            return function() {};
         };
         
         // Block document.write
@@ -53,39 +47,12 @@ class ThronsGame {
             console.log('document.write blocked');
         };
         
-        // Block malicious DOM manipulation
-        const originalCreateElement = document.createElement;
-        document.createElement = function(tagName) {
-            if (tagName && (tagName.toLowerCase() === 'script' || tagName.toLowerCase() === 'iframe')) {
-                console.log('Blocked suspicious element creation:', tagName);
-                return originalCreateElement.call(document, 'div');
-            }
-            return originalCreateElement.call(document, tagName);
-        };
-        
         // Block window.open spam
         const originalOpen = window.open;
         window.open = function(url, name, specs) {
-            console.log('Blocked window.open attempt to:', url);
+            console.log('Blocked window.open attempt');
             return null;
         };
-        
-        // Block excessive localStorage writes
-        const originalSetItem = localStorage.setItem;
-        localStorage.setItem = function(key, value) {
-            if (typeof value === 'string' && value.length > 10000) {
-                console.log('Blocked large localStorage write');
-                return;
-            }
-            return originalSetItem.call(this, key, value);
-        };
-        
-        // Block location manipulation
-        Object.defineProperty(window, 'location', {
-            value: window.location,
-            writable: false,
-            configurable: false
-        });
 
         this.db = window.db;
         
