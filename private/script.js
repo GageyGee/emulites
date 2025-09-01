@@ -1112,7 +1112,7 @@ updateActionButtons() {
             }
             return false;
         }
-    }
+    },
 
 async executeAdminAction(action) {
     if (!this.wallet) {
