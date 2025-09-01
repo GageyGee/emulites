@@ -4099,22 +4099,12 @@ async performBreeding() {
     
     if (!parent1 || !parent2) return;
     
-    // Calculate meeting point with more variation
+    // Generate completely random meeting point anywhere on the map
     const worldSize = this.getVirtualWorldSize();
+    const edgeBuffer = 100; // Keep away from edges
     
-    // Instead of simple midpoint, create a more dynamic meeting location
-    const baseX = (parent1.data.x + parent2.data.x) / 2;
-    const baseY = (parent1.data.y + parent2.data.y) / 2;
-    
-    // Add random offset to make each meeting unique (within 100px radius)
-    const offsetRadius = 100;
-    const randomAngle = Math.random() * 2 * Math.PI;
-    const randomDistance = Math.random() * offsetRadius;
-    
-    const meetingX = Math.max(50, Math.min(worldSize.width - 50, 
-        baseX + Math.cos(randomAngle) * randomDistance));
-    const meetingY = Math.max(50, Math.min(worldSize.height - 50, 
-        baseY + Math.sin(randomAngle) * randomDistance));
+    const meetingX = edgeBuffer + Math.random() * (worldSize.width - edgeBuffer * 2);
+    const meetingY = edgeBuffer + Math.random() * (worldSize.height - edgeBuffer * 2);
     
     const newThrongId = 'throng_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
