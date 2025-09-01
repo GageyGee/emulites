@@ -4613,7 +4613,6 @@ async executeBreedingAnimation(actionData) {
     
     // Use the pre-generated traits from the action data
     const traits = actionData.preGeneratedTraits || ['Mysterious', 'Curious', 'Brave'];
-    console.log('Using traits from action data:', traits);
     
     // Clear existing behaviors for parents
     clearInterval(parent1.behaviorInterval);
