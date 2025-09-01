@@ -4,19 +4,38 @@ const fs = require('fs');
 const path = require('path');
 
 // Initialize Firebase Admin first
-require('./private/firebase-admin-init');
+const admin = require('firebase-admin');
 
-// Import services
+// Initialize Firebase Admin with environment variables
+if (!admin.apps.length) {
+    try {
+        // Use individual environment variables instead of JSON parsing
+        const serviceAccount = {
+            type: "service_account",
+            project_id: process.env.FIREBASE_PROJECT_ID,
+            private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        };
+        
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: process.env.FIREBASE_PROJECT_ID
+        });
+        
+        console.log('Firebase Admin initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize Firebase Admin:', error);
+        throw error;
+    }
+}
+
+// Import services AFTER Firebase Admin is initialized
 const JournalService = require('./private/journal-service');
 const AutomationService = require('./private/automation-service');
-
-// Import Firebase Admin
-const admin = require('firebase-admin');
 
 const app = express();
 app.use(cors());
 app.use(express.static('public'));
-// Add JSON parsing middleware
 app.use(express.json());
 
 // Import and use Claude API routes
@@ -37,11 +56,6 @@ app.get('/api/script', (req, res) => {
 app.get('/api/styles', (req, res) => {
     const styles = fs.readFileSync('./private/style.css', 'utf8');
     res.json({ code: styles });
-});
-
-app.get('/api/firebase-config', (req, res) => {
-    const config = fs.readFileSync('./private/firebase-config.js', 'utf8');
-    res.json({ code: config });
 });
 
 // Serve sprites from private folder
@@ -81,8 +95,37 @@ app.get('/api/sprites', (req, res) => {
 app.get('/api/bundle', (req, res) => {
     try {
         const styles = fs.readFileSync('./private/style.css', 'utf8');
-        const firebaseConfig = fs.readFileSync('./private/firebase-config.js', 'utf8');
         const script = fs.readFileSync('./private/script.js', 'utf8');
+        
+        // Create Firebase config from environment variables
+        const firebaseConfigCode = `
+// Firebase configuration injected from environment variables
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+
+const firebaseConfig = {
+  apiKey: "${process.env.FIREBASE_API_KEY}",
+  authDomain: "${process.env.FIREBASE_AUTH_DOMAIN}",
+  projectId: "${process.env.FIREBASE_PROJECT_ID}",
+  storageBucket: "${process.env.FIREBASE_STORAGE_BUCKET}",
+  messagingSenderId: "${process.env.FIREBASE_MESSAGING_SENDER_ID}",
+  appId: "${process.env.FIREBASE_APP_ID}"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// Make available globally for the main script
+window.db = db;
+window.auth = auth;
+window.app = app;
+
+// Export for module usage
+export { db };
+        `;
         
         // Read and encode sprites as base64
         const spritesDir = path.join(__dirname, 'private', 'sprites');
@@ -113,34 +156,28 @@ document.head.appendChild(style);
 
 window.SPRITES = ${JSON.stringify(sprites)};
 
-${firebaseConfig}
+${firebaseConfigCode}
 
 ${script}
         `;
         
-// UTF-8 compatible encryption
-const key = 123; // Single encryption key
-const encrypt = (text) => {
-    // Convert text to UTF-8 bytes
-    const utf8Bytes = new TextEncoder().encode(text);
-    
-    // XOR each byte
-    const xorBytes = new Uint8Array(utf8Bytes.length);
-    for (let i = 0; i < utf8Bytes.length; i++) {
-        xorBytes[i] = utf8Bytes[i] ^ key;
-    }
-    
-    // Convert to base64
-    let binary = '';
-    for (let i = 0; i < xorBytes.length; i++) {
-        binary += String.fromCharCode(xorBytes[i]);
-    }
-    return btoa(binary);
-};
+        // UTF-8 compatible encryption
+        const key = 123;
+        const encrypt = (text) => {
+            const utf8Bytes = new TextEncoder().encode(text);
+            const xorBytes = new Uint8Array(utf8Bytes.length);
+            for (let i = 0; i < utf8Bytes.length; i++) {
+                xorBytes[i] = utf8Bytes[i] ^ key;
+            }
+            let binary = '';
+            for (let i = 0; i < xorBytes.length; i++) {
+                binary += String.fromCharCode(xorBytes[i]);
+            }
+            return btoa(binary);
+        };
         
         const encrypted = encrypt(bundleContent);
         
-        // Create the decryption script
         const decryptorScript = `
 const k = ${key};
 const d = '${encrypted}';
@@ -148,20 +185,14 @@ const d = '${encrypted}';
 function decrypt(encryptedData, key) {
     try {
         const decoded = atob(encryptedData);
-        
-        // Convert decoded string back to bytes
         const xorBytes = new Uint8Array(decoded.length);
         for (let i = 0; i < decoded.length; i++) {
             xorBytes[i] = decoded.charCodeAt(i);
         }
-        
-        // XOR each byte back
         const utf8Bytes = new Uint8Array(xorBytes.length);
         for (let i = 0; i < xorBytes.length; i++) {
             utf8Bytes[i] = xorBytes[i] ^ key;
         }
-        
-        // Convert back to UTF-8 string
         return new TextDecoder().decode(utf8Bytes);
     } catch (e) {
         console.error('Decryption failed:', e);
@@ -211,7 +242,53 @@ app.post('/api/auth/admin-token', async (req, res) => {
     }
 });
 
-// Add automation control endpoints (optional - for manual control)
+// Admin endpoints that require wallet verification
+app.post('/api/admin/:action', async (req, res) => {
+    try {
+        const { walletAddress } = req.body;
+        const action = req.params.action;
+        
+        // Verify this is your admin wallet
+        if (walletAddress !== 'sDoTsdt9QPDMcJg2u9kATMxsh8FVboz4eoTrxTvibqB') {
+            return res.status(403).json({ error: 'Access denied - invalid wallet address' });
+        }
+        
+        // Execute the action using the automation service
+        if (!global.automationService) {
+            return res.status(500).json({ error: 'Automation service not available' });
+        }
+        
+        // Map actions to automation service methods
+        const actionMethods = {
+            'buildHouse': () => global.automationService.performBuilding(),
+            'buildApartment': () => global.automationService.performApartmentBuilding(),
+            'breeding': () => global.automationService.performBreeding(),
+            'plantTree': () => global.automationService.performPlantTree(),
+            'buildFirepit': () => global.automationService.performBuildFirepit(),
+            'discoverBones': () => global.automationService.performDiscoverBones(),
+            'dropEgg': () => global.automationService.performDropEgg(),
+            'crashUFO': () => global.automationService.performCrashUFO(),
+            'death': () => global.automationService.performDeath(),
+            'fire': () => global.automationService.performFire(),
+            'rain': () => global.automationService.triggerRainEvent(),
+            'tornado': () => global.automationService.triggerTornadoEvent(),
+            'snow': () => global.automationService.triggerSnowEvent()
+        };
+        
+        if (actionMethods[action]) {
+            await actionMethods[action]();
+            res.json({ message: `${action} executed successfully` });
+        } else {
+            res.status(400).json({ error: 'Invalid action' });
+        }
+        
+    } catch (error) {
+        console.error(`Admin action ${req.params.action} failed:`, error);
+        res.status(500).json({ error: 'Action failed' });
+    }
+});
+
+// Add automation control endpoints
 app.post('/api/automation/start', (req, res) => {
     if (global.automationService) {
         global.automationService.start();
