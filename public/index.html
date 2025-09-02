@@ -64,12 +64,55 @@
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             border: 2px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
         }
         
         .twitch-embed {
             width: 100%;
             height: 100%;
             border: none;
+        }
+        
+        .stream-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .stream-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .twitch-button {
+            background: #9146ff;
+            color: white;
+        }
+        
+        .twitch-button:hover {
+            background: #7c3aed;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(145, 70, 255, 0.3);
+        }
+        
+        .pump-button {
+            background: #83efaa;
+            color: white;
+        }
+        
+        .pump-button:hover {
+            background: #6bd692;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(255, 107, 53, 0.3);
         }
         
         .loading-dots {
@@ -232,6 +275,17 @@
                 width: 250px;
                 height: 47px;
             }
+            
+            .stream-buttons {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .stream-button {
+                width: 200px;
+                text-align: center;
+            }
         }
 
 /* Block screen for resolutions smaller than 1600x900 */
@@ -258,7 +312,7 @@
         <div class="loading-text">View our livestream of our fully autonomous AI-controlled environment while we continue developing and refining the main instance.</div>
         <div class="twitch-container">
             <iframe 
-                src="https://embed.twitch.tv/emulites&parent=emulites.ai&parent=localhost&parent=127.0.0.1" 
+                src="https://embed.twitch.tv/emulites?parent=emulites.ai" 
                 frameborder="0" 
                 allowfullscreen="true" 
                 scrolling="no" 
@@ -266,6 +320,10 @@
                 width="100%"
                 class="twitch-embed">
             </iframe>
+        </div>
+        <div class="stream-buttons">
+            <a href="https://www.twitch.tv/emulites" target="_blank" class="stream-button twitch-button">Watch on Twitch</a>
+            <a href="https://pump.fun/coin/B9iPvm8YybydhvMiKAuJuygEKuzspgxdavhFNzzUpump" target="_blank" class="stream-button pump-button">Watch on Pump.fun</a>
         </div>
         <div class="loading-dots">
             <span>.</span><span>.</span><span>.</span>
