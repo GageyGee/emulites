@@ -16,7 +16,7 @@
 </head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' blob: data: 'unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' blob: data:; img-src 'self' blob: data: https:; connect-src 'self' https: wss: blob: data:; font-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' blob: data: 'unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' blob: data:; img-src 'self' blob: data: https:; connect-src 'self' https: wss: blob: data:; font-src 'self' data: https:; frame-src https://embed.twitch.tv;">
     <title>Emulites Environment</title>
     <style>
         /* Loading screen styles - inline so they show immediately */
@@ -34,21 +34,42 @@
             z-index: 9999;
             font-family: 'Courier New', monospace;
             color: white;
+            padding: 20px;
+            box-sizing: border-box;
         }
         
         .loading-logo {
             width: 315px;
             height: 59px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             image-rendering: pixelated;
             image-rendering: -moz-crisp-edges;
             image-rendering: crisp-edges;
         }
         
         .loading-text {
-            font-size: 24px;
-            margin-bottom: 30px;
+            font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.4;
             animation: breathe 2s ease-in-out infinite;
+        }
+        
+        .twitch-container {
+            width: 100%;
+            max-width: 800px;
+            height: 450px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .twitch-embed {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
         
         .loading-dots {
@@ -196,6 +217,23 @@
             color: #ffffff;
         }
 
+        /* Responsive adjustments for the Twitch embed */
+        @media (max-width: 900px) {
+            .twitch-container {
+                max-width: 90%;
+                height: 300px;
+            }
+            
+            .loading-text {
+                font-size: 16px;
+            }
+            
+            .loading-logo {
+                width: 250px;
+                height: 47px;
+            }
+        }
+
 /* Block screen for resolutions smaller than 1600x900 */
 @media (max-width: 1599px), (max-height: 899px) {
     #mobileBlockScreen {
@@ -217,7 +255,18 @@
     <!-- Loading Screen -->
     <div id="loadingScreen">
         <img src="/api/sprites/loadinglogo.png" alt="Emulites Logo" class="loading-logo">
-        <div class="loading-text">We'll be right back</div>
+        <div class="loading-text">View our livestream of our fully autonomous AI-controlled environment while we continue developing and refining the main instance.</div>
+        <div class="twitch-container">
+            <iframe 
+                src="https://embed.twitch.tv/emulites&parent=emulites.ai&parent=localhost&parent=127.0.0.1" 
+                frameborder="0" 
+                allowfullscreen="true" 
+                scrolling="no" 
+                height="100%" 
+                width="100%"
+                class="twitch-embed">
+            </iframe>
+        </div>
         <div class="loading-dots">
             <span>.</span><span>.</span><span>.</span>
         </div>
